@@ -1,0 +1,41 @@
+{
+  "name": "logic",
+  "description": "weird logic bricks prototype",
+  "author": "cake",
+  "config": {
+  },
+  "commands": [{
+    "name": "/go",
+    "description": "Build the simulation",
+    "example": "/go",
+    "args": []
+  }, {
+    "name": "!press",
+    "description": "Press a button or toggle a lever",
+    "example": "!press",
+    "args": []
+  }, {
+    "name": "/stop",
+    "description": "Stop the simulation",
+    "example": "/stop",
+    "args": []
+  }, {
+    "name": "/clg",
+    "description": "Clear logic bricks and stop the simulation",
+    "example": "/clg",
+    "args": []
+  }, {
+    "name": "/next",
+    "description": "Run one or more frames of the simulation",
+    "example": "/clg 500 100",
+    "args": [{
+      "name": "frames",
+      "description": "How many frames to run (default 1)",
+      "required": false
+    }, {
+      "name": "sleep",
+      "description": "Time between frames (default 500)",
+      "required": false
+    }]
+  }]
+}
