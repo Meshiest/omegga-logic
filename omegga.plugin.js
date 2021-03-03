@@ -3,61 +3,32 @@ const owner = {
   id: '94e3f858-452d-4b07-9eff-e82a7a7bd734',
 };
 
-const { getBrickSize, _getScaleAxis } = global.OMEGGA_UTIL.brick;
-
-// soon: util.brick.getScaleAxis
-function getScaleAxis(brick, axis) {
-  const { direction, rotation } = brick;
-  if ([0,1].includes(direction)) {
-    if (axis === 0) {
-      axis = 2;
-    } else if (axis === 2) {
-      axis = 0;
-    }
-  } else if ([2,3].includes(direction)) {
-    if (axis === 0) {
-      axis = 1;
-    } else if (axis === 1) {
-      axis = 2;
-    } else if (axis === 2) {
-      axis = 0;
-    }
-  }
-
-  if ([1,3].includes(rotation)) {
-    if (axis === 0) {
-      axis = 1;
-    } else if (axis === 1) {
-      axis = 0;
-    }
-  }
-
-  return axis;
-}
+const { getBrickSize, getScaleAxis } = global.OMEGGA_UTIL.brick;
+const ChunkTree = require('./octtree.js');
+const { Point } = ChunkTree;
 
 // scan above a provided brick for marker bricks
-const getMarkerBricks = (save, b, height=Infinity) => {
-  const size = b.rotation === 1 || b.rotation == 3 ? [b.size[1], b.size[0], b.size[2]] : b.size;
+const getMarkerBricks = (tree, save, b) => {
+  // find all bricks above this brick
+  const aboveBrickIndices = tree.search(
+    new Point(b.bounds.min.x, b.bounds.min.y, b.bounds.max.z),
+    new Point(b.bounds.max.x, b.bounds.max.y, b.bounds.max.z + 1),
+  );
 
-  const min = [b.position[0] - size[0] - 2, b.position[1] - size[1] - 2, b.position[2] + 1];
-  const max = [b.position[0] + size[0] + 2, b.position[1] + size[1] + 2, b.position[2] + height];
   const bricks = [];
-  for (const brick of save.bricks) {
-    if (
-      !brick.used &&
-      brick.color === b.color &&
+  for (const i of aboveBrickIndices) {
+    const brick = save.bricks[i];
+    if (brick.color === b.color &&
       brick.material_index === b.material_index &&
-      brick.size[0] <= 1 && brick.size[1] <= 1 && brick.size[2] <= 1 &&
-      min[2] <= brick.position[2] && brick.position[2] <= max[2] &&
-      min[0] <= brick.position[0] && brick.position[0] <= max[0] &&
-      min[1] <= brick.position[1] && brick.position[1] <= max[1]
-    ) {
-      brick.used = true;
+      brick.size[0] <= 1 && brick.size[1] <= 1 && brick.size[2] <= 1) {
       bricks.push(brick);
     }
   }
   return bricks;
 };
+
+const sleep = t => new Promise(resolve => setTimeout(resolve, t));
+
 
 // check an asset/material for a match
 const isAsset = (save, brick, name) => save.brick_assets[brick.asset_name_index] === name;
@@ -129,15 +100,15 @@ module.exports = class Logic {
     this.omegga = omegga;
     this.config = config;
     this.store = store;
-    this.state = {wires: [], groups: [], gates: []};
+    this.state = {save: {bricks:[]}, wires: [], groups: [], gates: [], tree: new ChunkTree(-1)};
   }
 
   // determine if a plate is a gate
-  static isGate(save, brick) {
+  static isGate(tree, save, brick) {
     return isAsset(save, brick, 'PB_DefaultSmoothTile') &&
       isMaterial(save, brick, 'BMC_Metallic') &&
       brick.direction === 4 &&
-      Logic.getGateType(save, brick);
+      Logic.getGateType(tree, save, brick);
   }
 
   // determine if a brick is a wire
@@ -156,9 +127,9 @@ module.exports = class Logic {
   }
 
   // extract gate type from a brick
-  static getGateType(save, brick) {
+  static getGateType(tree, save, brick) {
     // detect marker brick assets
-    const markerBricks = getMarkerBricks(save, brick, 4);
+    const markerBricks = getMarkerBricks(tree, save, brick, 4);
 
     // get the brick assets from the marker bricks
     const markers = markerBricks.map(b => save.brick_assets[b.asset_name_index]);
@@ -222,15 +193,34 @@ module.exports = class Logic {
     const wires = []; // wire bricks
     const gates = []; // logic gate bricks
     const groups = []; // wire groups
+    const tree = new ChunkTree(-1);
 
     benchStart('build');
+    benchStart('octtree');
+    for (let i = 0; i < data.brick_count; i++) {
+      const brick = data.bricks[i];
+      const normal_size = getBrickSize(brick, data.brick_assets);
+      const size = [
+        normal_size[getScaleAxis(brick, 0)],
+        normal_size[getScaleAxis(brick, 1)],
+        normal_size[getScaleAxis(brick, 2)],
+      ];
+      brick.bounds = {
+        min: new Point(brick.position[0] - size[0], brick.position[1] - size[1], brick.position[2] - size[2]),
+        max: new Point(brick.position[0] + size[0], brick.position[1] + size[1], brick.position[2] + size[2]),
+      };
+      brick.normal_size = size;
+      tree.insert(i, brick.bounds.min, brick.bounds.max);
+    }
+    benchEnd('octtree');
+
     benchStart('selection');
     let times = [0, 0, 0];
     // classify each brick from the save
     for (const brick of data.bricks) {
       let start = Date.now(), index = 0;
       // if a brick is a gate, store the gate
-      const gate = Logic.isGate(data, brick);
+      const gate = Logic.isGate(tree, data, brick);
       if (gate) {
         index = 1;
         brick.used = true;
@@ -382,7 +372,7 @@ module.exports = class Logic {
   static async renderState(state) {
     await Omegga.clearBricks(owner, {quiet: true});
     const out = {
-      version: 9,
+      version: 10,
       brick_owners: [owner],
       materials: ['BMC_Plastic', 'BMC_Glow'],
       brick_assets: ['PB_DefaultMicroBrick'],
@@ -393,7 +383,6 @@ module.exports = class Logic {
     for (let i = 0; i < state.wires.length; i++) {
       const brick = state.wires[i];
       const on = state.groups[brick.group-1].currPower;
-      // TODO: maybe hide bricks without power
       if (!on) continue;
 
       out.bricks.push({
@@ -402,6 +391,12 @@ module.exports = class Logic {
         color: brick.color,
         direction: 4,
         rotation: 0,
+        collision: {
+          tool: false,
+          player: false,
+          interaction: false,
+          weapon: false,
+        },
         material_intensity: on ? 7 : 0,
         material_index: 1,
       });
@@ -416,7 +411,6 @@ module.exports = class Logic {
     });
 
     Omegga.on('cmd:next', async (n, amount, speed) => {
-      const sleep = t => new Promise(resolve => setTimeout(resolve, t));
       try {
         if (!Omegga.getPlayer(n).isHost()) return;
 
