@@ -66,6 +66,7 @@ class Node {
     this.nodes = [];
   }
 
+  // determine if provided bounds perfectly completely cover this node
   wouldFillNode(min, max) {
     const size = (1<<this.depth);
     return (max.x - min.x) == size && (max.y - min.y) == size && (max.z - min.z) == size;
@@ -115,19 +116,16 @@ class Node {
       throw 'bounds too large for node';
 
     // if the bounding box overlaps the midpoint, break it into chunks
-    // if (minBound.x < this.point.x && this.point.x < maxBound.x) {
     if (maxBound.x - minBound.x > halfSize || minBound.x < this.point.x && this.point.x < maxBound.x) {
       this.insert(value, new Point(this.point.x, minBound.y, minBound.z), maxBound);
       this.insert(value, minBound, new Point(this.point.x, maxBound.y, maxBound.z));
       return;
     }
-    // if (minBound.y < this.point.y && this.point.y < maxBound.y) {
     if (maxBound.y - minBound.y > halfSize || minBound.y < this.point.y && this.point.y < maxBound.y) {
       this.insert(value, new Point(minBound.x, this.point.y, minBound.z), maxBound);
       this.insert(value, minBound, new Point(maxBound.x, this.point.y, maxBound.z));
       return;
     }
-    // if (minBound.z < this.point.z && this.point.z < maxBound.z) {
     if (maxBound.z - minBound.z > halfSize || minBound.z < this.point.z && this.point.z < maxBound.z) {
       this.insert(value, new Point(minBound.x, minBound.y, this.point.z), maxBound);
       this.insert(value, minBound, new Point(maxBound.x, maxBound.y, this.point.z));
