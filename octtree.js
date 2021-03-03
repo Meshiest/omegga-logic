@@ -171,18 +171,25 @@ class Node {
     const halfSize = Math.pow(2, this.depth - 2);
     for (const n of this.nodes) {
       // if the bounds are outside of this node, don't search
-      if (n.point.x + halfSize < minBound.x ||
-          n.point.x - halfSize > maxBound.x ||
-          n.point.y + halfSize < minBound.y ||
-          n.point.y - halfSize > maxBound.y ||
-          n.point.z + halfSize < minBound.z ||
-          n.point.z - halfSize > maxBound.z) {
+      if (n.point.x + halfSize <= minBound.x ||
+          n.point.x - halfSize >= maxBound.x ||
+          n.point.y + halfSize <= minBound.y ||
+          n.point.y - halfSize >= maxBound.y ||
+          n.point.z + halfSize <= minBound.z ||
+          n.point.z - halfSize >= maxBound.z) {
         continue;
       }
 
       // search the octant
       n.search(minBound, maxBound, set);
     }
+  }
+
+  // get the value at this point
+  get(point) {
+    if (this.nodes.length === 0)
+      return this.value;
+    return this.nodes[this.point.getOctant(point)].get(point);
   }
 }
 
@@ -275,6 +282,17 @@ module.exports = class ChunkTree {
     results.delete(this.fill);
 
     return results;
+  }
+
+  // get the value at a point
+  get(point) {
+    const chunk = this.getChunkAt(point);
+    if (chunk) {
+      // search the chunk if it exists
+      return chunk.get(point);
+    } else {
+      return this.fill;
+    }
   }
 
   // insert an area into chunks
