@@ -142,7 +142,7 @@ module.exports = class Logic {
         if (times === 1)
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> simulated a single frame."`)
         else
-          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times*wait/1000)} seconds."`)
+          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times*wait/1000)} seconds (${Math.round(1000/wait)} tps)."`)
 
         for (let i = 0; i < times; i++) {
           const state = this.state;
