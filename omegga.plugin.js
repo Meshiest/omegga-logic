@@ -125,7 +125,7 @@ module.exports = class Logic {
       try {
         const player = Omegga.getPlayer(n);
         const pos = await player.getPosition();
-        const gate = this.state.gates.find(g => g.input &&
+        const gate = this.state.gates.find(g => g.isInput &&
           Math.hypot(g.meta.position[0]-pos[0], g.meta.position[1]-pos[1]) < 10);
         if (gate) {
           gate.interact();

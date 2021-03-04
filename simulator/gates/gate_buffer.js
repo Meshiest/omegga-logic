@@ -3,7 +3,7 @@ module.exports = class BufferGate extends SimpleGate {
   static getName() { return 'buffer'; }
   static getMarker() { return 'PB_DefaultMicroWedgeTriangleCorner'; }
   evaluate(sim) {
-    const inputs = this.getGroupPowers(this.inputs, sim);
+    const inputs = sim.getGroupPower(this.inputs);
     return inputs.some(i => i);
   }
 };

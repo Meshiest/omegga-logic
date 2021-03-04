@@ -77,14 +77,14 @@ class Gate {
 
     // ignore empty markers
     if (!markers.length) {
-      console.log('missing markers on gate @', brick.position);
-      return;
+      console.log('!! missing markers on gate @', brick.position);
+      return false;
     }
 
     // the microbrick is the inverted marker
     const inverted = markers.includes('PB_DefaultMicroBrick');
 
-    let Gate, indicator, data;
+    let Gate, indicator, connectables;
 
     // special gates have separate indicators than regular gates
     if (markers.includes(this.SPECIAL_GATE_ID)) {
@@ -105,21 +105,29 @@ class Gate {
       }
 
       // missing indicator
-      if (!indicator || !Gate) {
-        console.log('failed to find indicator for gate @', brick.position, markers);
+      if (!indicator) {
+        console.log('!! failed to find indicator for gate @', brick.position, markers);
         return false;
       }
 
-      console.log('special gate @', brick.position, Gate);
+      // missing gate
+      if (!Gate) {
+        console.log('!! failed to identify gate @', brick.position, markers);
+        return false;
+      }
 
-      data = {};
+      connectables = {};
 
       // find the meaningful markers
-      const connectables = Gate.getConnectables();
-      for (const ioType in connectables) {
-        const req = connectables[ioType];
-        const items = markerBricks.filter(b => this.SPECIAL_MARKERS[save.brick_assets[b.asset_name_index]] === ioType);
-        console.log('found', items.length, ioType, 'need', req);
+      const requirements = Gate.getConnectables();
+      for (const ioType in requirements) {
+        const req = requirements[ioType];
+        const items = markerBricks.filter(b => this.SPECIAL_MARKERS[sim.save.brick_assets[b.asset_name_index]] === ioType);
+        if (typeof req === 'function' ? !req(items.length) : req !== items.length) {
+          console.log('!!', Gate.getName(), '@', brick.position, 'has unsatisifed', ioType);
+          return false;
+        }
+        connectables[ioType] = items.map(i => i.bounds);
       }
     } else {
       // find the regular gate indicator
@@ -132,12 +140,12 @@ class Gate {
       }
 
       if (!indicator) {
-        console.log('failed to find indicator for gate @', brick.position, markers);
+        console.log('!! failed to find indicator for gate @', brick.position, markers);
         return false;
       }
 
       if (!Gate) {
-        console.log('failed to find gate @', brick.position, markers);
+        console.log('!! failed to find gate @', brick.position, markers);
         return false;
       }
     }
@@ -148,7 +156,7 @@ class Gate {
 
     return new Gate(brick, {
       bounds: brick.bounds, position: brick.position,
-      inverted, direction, data,
+      inverted, direction, connectables,
     }, sim);
   }
 };

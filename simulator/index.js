@@ -16,6 +16,8 @@ Gate.registerGate(require('./gates/gate_buffer.js'));
 Gate.registerGate(require('./gates/input_button.js'));
 Gate.registerGate(require('./gates/input_lever.js'));
 
+Gate.registerSpecial(require('./gates/latch_sr.js'));
+
 // logic simulator
 module.exports = class Simulator {
   constructor(save, util) {
@@ -28,6 +30,7 @@ module.exports = class Simulator {
   }
 
   compile() {
+    console.log(' -- build started');
     this.wires = [];
     this.groups = [];
     this.gates = [];
@@ -87,6 +90,26 @@ module.exports = class Simulator {
     benchEnd('gates');
     benchEnd('build');
     console.info(count, 'unused bricks');
+    console.log(' -- build complete');
+  }
+
+  // set the next power of a group
+  setGroupPower(set, value) {
+    if (!set) return;
+    // set the groups next power
+    for (const o of set) {
+      const group = this.groups[o-1];
+      group.nextPower = group.nextPower || value;
+    }
+  }
+
+  // get inputs from the gate
+  getGroupPower(set) {
+    const group = Array.from(set)
+    for (let i = 0; i < group.length; ++i) {
+      group[i] = this.groups[group[i]-1].currPower;
+    }
+    return group;
   }
 
   next() {
@@ -98,14 +121,8 @@ module.exports = class Simulator {
       // calculate the output
       const output = gate.evaluate(this) != gate.isInverted();
 
-      // output if the gate has an output
-      if (gate.outputs) {
-        // set the output groups powers
-        for (const o of gate.outputs) {
-          const group = this.groups[o-1];
-          group.nextPower = group.nextPower || output;
-        }
-      }
+      if (typeof output === 'boolean')
+        this.setGroupPower(gate.outputs, output);
     }
 
     // update power states for the group

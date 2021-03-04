@@ -1,4 +1,5 @@
 const { searchBoundsSide } = require('../util.js');
+const { Point } = require('../../octtree.js');
 
 class LogicGate {
   static getMarker() { throw 'unimplemented getMarker'; }
@@ -10,11 +11,10 @@ class LogicGate {
     this.brick = brick;
     this.meta = meta;
     this.gate = this.constructor.getName();
+    this.init();
   }
+  init() {}
   findConnections(sim) {}
-
-  // get inputs from the gate
-  getGroupPowers(set, sim) { return Array.from(set).map(i => sim.groups[i-1].currPower); }
 
   // get inverted state
   isInverted() { return this.meta.inverted; }
@@ -35,7 +35,7 @@ class InputGate extends LogicGate {
   findConnections(sim) {
      // (user) input gates only have outputs as the input is handled by the user
     this.outputs = new Set();
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 4; ++i) {
       for (const j of searchBoundsSide(sim.tree, this.meta.bounds, i)) {
         const group = sim.save.bricks[j].group;
         if (group) {
@@ -52,7 +52,7 @@ class SimpleGate extends LogicGate {
     this.outputs = new Set();
     this.inputs = new Set();
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 4; ++i) {
       for (const j of searchBoundsSide(sim.tree, this.meta.bounds, i)) {
         const group = sim.save.bricks[j].group;
         if (group) {
@@ -65,6 +65,41 @@ class SimpleGate extends LogicGate {
   // gates that have special inputs and outputs based on markers
 class SpecialGate extends LogicGate {
   static getConnectables() { return {}; };
+  findConnections(sim) {
+    this.connections = {};
+    const order = [
+      (a, b) => a.min.x - b.min.x,
+      (a, b) => a.min.y - b.min.y,
+      (a, b) => b.min.x - a.min.x,
+      (a, b) => b.min.y - a.min.y,
+    ][this.meta.direction];
+
+    for (const connType in this.meta.connectables) {
+      const nodes = this.meta.connectables[connType];
+      const sets = this.connections[connType] = Array(nodes.length);
+
+      // sort nodes in the order based on direction
+      nodes.sort(order);
+
+      for (let n = 0; n < nodes.length; ++n) {
+        // shifted bound down to gate level
+        const bound = {
+          min: new Point(nodes[n].min.x, nodes[n].min.y, this.meta.bounds.min.z),
+          max: new Point(nodes[n].max.x, nodes[n].max.y, this.meta.bounds.max.z),
+        };
+
+        sets[n] = new Set();
+        for (let i = 0; i < 4; ++i) {
+          for (const j of searchBoundsSide(sim.tree, bound, i)) {
+            const group = sim.save.bricks[j].group;
+            if (group) {
+              sets[n].add(group);
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 module.exports = {
