@@ -17,6 +17,11 @@ Gate.registerGate(require('./gates/input_button.js'));
 Gate.registerGate(require('./gates/input_lever.js'));
 
 Gate.registerSpecial(require('./gates/latch_sr.js'));
+Gate.registerSpecial(require('./gates/flipflop_d.js'));
+Gate.registerSpecial(require('./gates/flipflop_jk.js'));
+Gate.registerSpecial(require('./gates/adder.js'));
+
+// Gate.registerSpecial(require('./gates/test_memory.js'));
 
 // logic simulator
 module.exports = class Simulator {
@@ -34,6 +39,7 @@ module.exports = class Simulator {
     this.wires = [];
     this.groups = [];
     this.gates = [];
+    this.errors = [];
 
     benchStart('build');
 
@@ -47,7 +53,7 @@ module.exports = class Simulator {
       const brick = this.save.bricks[i];
       // if a brick is a gate, store the gate
       const gate = Gate.isGate(brick, this);
-      if (gate) {
+      if (gate !== 'error' && gate) {
         brick.used = true;
         brick.gate = this.gates.length;
         gate.brick = i;
@@ -60,6 +66,10 @@ module.exports = class Simulator {
         brick.neighbors = new Set();
         brick.wire = this.wires.length;
         this.wires.push(brick);
+      }
+
+      if (gate === 'error') {
+        this.errors.push(brick.position);
       }
     }
     benchEnd('selection');

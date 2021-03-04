@@ -12,15 +12,15 @@ class Gate {
   // indicators for each special bricks
   static SPECIAL_MARKERS = {
     PB_DefaultWedge: 'input',
+    PB_DefaultRampCrest: 'secondary',
     PB_DefaultRampCrestEnd: 'output',
     B_1x1F_Round: 'reset',
     B_1x1F_Octo: 'clock',
-    B_Small_Flower: '',
-    PB_DefaultRampCrest: '',
+    B_Small_Flower: 'clr',
     PB_DefaultRampCrestCorner: '',
     PB_DefaultMicroWedgeCorner: '',
     PB_DefaultSideWedgeTile: '',
-    PB_DefaultSideWedg: '',
+    PB_DefaultSideWedge: '',
   };
 
   // map brick assets to gates
@@ -73,21 +73,25 @@ class Gate {
     const markerBricks = this.getMarkers(brick, sim);
 
     // get the brick assets from the marker bricks
-    const markers = markerBricks.map(b => sim.save.brick_assets[b.asset_name_index]);
+    const markers = {};
+    for (const b of markerBricks) {
+      const asset = sim.save.brick_assets[b.asset_name_index];
+      markers[asset] = (markers[asset] || 0) + 1;
+    }
 
     // ignore empty markers
-    if (!markers.length) {
+    if (!markerBricks.length) {
       console.log('!! missing markers on gate @', brick.position);
-      return false;
+      return 'error';
     }
 
     // the microbrick is the inverted marker
-    const inverted = markers.includes('PB_DefaultMicroBrick');
+    const inverted = !!markers.PB_DefaultMicroBrick;
 
-    let Gate, indicator, connectables;
+    let Gate, indicator, connectables, count = 0;
 
     // special gates have separate indicators than regular gates
-    if (markers.includes(this.SPECIAL_GATE_ID)) {
+    if (markers[this.SPECIAL_GATE_ID]) {
       // find the indicator brick and gate marker
       for (const m of markerBricks) {
         const markerAsset = sim.save.brick_assets[m.asset_name_index];
@@ -96,7 +100,7 @@ class Gate {
 
         if (!Gate) {
           for (const g of this.specialGates) {
-            if (g.getMarker() === markerAsset) {
+            if (g.getMarker() === markerAsset && markers[markerAsset] === g.getMarkerCount()) {
               Gate = g;
               break;
             }
@@ -107,13 +111,13 @@ class Gate {
       // missing indicator
       if (!indicator) {
         console.log('!! failed to find indicator for gate @', brick.position, markers);
-        return false;
+        return 'error';
       }
 
       // missing gate
       if (!Gate) {
         console.log('!! failed to identify gate @', brick.position, markers);
-        return false;
+        return 'error';
       }
 
       connectables = {};
@@ -125,7 +129,7 @@ class Gate {
         const items = markerBricks.filter(b => this.SPECIAL_MARKERS[sim.save.brick_assets[b.asset_name_index]] === ioType);
         if (typeof req === 'function' ? !req(items.length) : req !== items.length) {
           console.log('!!', Gate.getName(), '@', brick.position, 'has unsatisifed', ioType);
-          return false;
+          return 'error';
         }
         connectables[ioType] = items.map(i => i.bounds);
       }
@@ -141,12 +145,12 @@ class Gate {
 
       if (!indicator) {
         console.log('!! failed to find indicator for gate @', brick.position, markers);
-        return false;
+        return 'error';
       }
 
       if (!Gate) {
         console.log('!! failed to find gate @', brick.position, markers);
-        return false;
+        return 'error';
       }
     }
 

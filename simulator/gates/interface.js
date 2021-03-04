@@ -3,6 +3,7 @@ const { Point } = require('../../octtree.js');
 
 class LogicGate {
   static getMarker() { throw 'unimplemented getMarker'; }
+  static getMarkerCount() { return 1; }
   static getName() { throw 'unimplemented getName'; }
   static isValid(brick, markers, sim) { throw 'unimplemented isValid'; }
   evaluate(sim) { throw 'unimplemented evaluate'; }
@@ -68,10 +69,10 @@ class SpecialGate extends LogicGate {
   findConnections(sim) {
     this.connections = {};
     const order = [
-      (a, b) => a.min.x - b.min.x,
       (a, b) => a.min.y - b.min.y,
       (a, b) => b.min.x - a.min.x,
       (a, b) => b.min.y - a.min.y,
+      (a, b) => a.min.x - b.min.x,
     ][this.meta.direction];
 
     for (const connType in this.meta.connectables) {

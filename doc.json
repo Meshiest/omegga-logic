@@ -3,6 +3,16 @@
   "description": "weird logic bricks prototype",
   "author": "cake",
   "config": {
+    "only-authorized": {
+      "description": "Whether only authorized players can use logic commands",
+      "type": "boolean",
+      "default": true
+    },
+    "authorized-users": {
+      "description": "List of players who can always logic commands",
+      "type": "players",
+      "default": []
+    }
   },
   "commands": [{
     "name": "/go",

@@ -75,6 +75,7 @@ module.exports = class Wire {
       normal_size[sim.util.brick.getScaleAxis(brick, 1)],
       normal_size[sim.util.brick.getScaleAxis(brick, 2)],
     ];
-    return brick.normal_size[2] === 1 && !(brick.normal_size[0] !== 1 && brick.normal_size[1] !== 1);
+
+    return (brick.normal_size[0] === 1) + (brick.normal_size[1] === 1) + (brick.normal_size[2] === 1) > 1;
   }
 };

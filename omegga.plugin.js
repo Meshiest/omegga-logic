@@ -24,95 +24,133 @@ module.exports = class Logic {
     this.state = null;
   }
 
+  // check if a name is authorized
+  isAuthorized(name) {
+    const player = Omegga.getPlayer(name);
+    return player.isHost() || this.config['authorized-users'].some(p => player.id === p.id);
+  }
+
   // render a logic state to bricks
-  static async renderState(state) {
-    const owner =  MULTI_FRAME_MODE ? owners[1 - state.frame % 2] : owners[0];
-    const prevOwner = owners[state.frame % 2];
+  async renderState() {
+    try {
+      const { state } = this;
+      const owner =  MULTI_FRAME_MODE ? owners[1 - state.frame % 2] : owners[0];
+      const prevOwner = owners[state.frame % 2];
 
-    const out = {
-      version: 10,
-      brick_owners: [owner],
-      materials: ['BMC_Plastic', 'BMC_Glow'],
-      brick_assets: ['PB_DefaultMicroBrick', 'PB_DefaultMicroWedge'],
-      colors: state.colors,
-      bricks: [],
-    };
-
-    const orientation = {direction: state.frame % 2 ? 0 : 0, rotation: state.frame % 2 ? 2 : 0};
-    const axis = [
-      getScaleAxis(orientation, 0),
-      getScaleAxis(orientation, 1),
-      getScaleAxis(orientation, 2),
-    ];
-
-    // clear owner bricks (causes flash)
-    if (!MULTI_FRAME_MODE)
-      await Omegga.clearBricks(owner, {quiet: true});
-
-    for (let i = 0; i < state.wires.length; i++) {
-      const brick = state.wires[i];
-      const on = state.groups[brick.group-1].currPower;
-      if (!on) continue;
-
-      const newBrick = {
-        position: [brick.position[0], brick.position[1], brick.position[2] + 2],
-        asset_name_index: 0, // regular brick
-        size: brick.normal_size,
-        color: brick.color,
-        direction: 4,
-        rotation: 0,
-        collision: {
-          tool: false,
-          player: false,
-          interaction: false,
-          weapon: false,
-        },
-        material_intensity: on ? 7 : 0,
-        material_index: 1,
+      const out = {
+        version: 10,
+        brick_owners: [owner],
+        materials: ['BMC_Plastic', 'BMC_Glow'],
+        brick_assets: ['PB_DefaultMicroBrick', 'PB_DefaultMicroWedge'],
+        colors: state.colors,
+        bricks: [],
       };
 
-      // use properly scaled microwedges if configured
-      if (MULTI_FRAME_MODE) {
-        newBrick.asset_name_index = 1;
-        newBrick.size = [
-          brick.normal_size[axis[0]],
-          brick.normal_size[axis[1]],
-          brick.normal_size[axis[2]],
-        ];
-        newBrick.direction = orientation.direction;
-        newBrick.rotation = orientation.rotation;
+      const orientation = {direction: state.frame % 2 ? 0 : 0, rotation: state.frame % 2 ? 2 : 0};
+      const axis = [
+        getScaleAxis(orientation, 0),
+        getScaleAxis(orientation, 1),
+        getScaleAxis(orientation, 2),
+      ];
+
+      // clear owner bricks (causes flash)
+      if (!MULTI_FRAME_MODE)
+        await Omegga.clearBricks(owner, {quiet: true});
+
+      for (let i = 0; i < state.errors.length; ++i) {
+        const error = state.errors[i];
+        out.bricks.push({
+          position: [error[0], error[1], error[2] + 30 + (state.frame % 2) * 20],
+          asset_name_index: 0, // regular brick
+          size: [2, 2, 10],
+          color: [255, 0, 0],
+          direction: 4,
+          rotation: 0,
+          material_intensity: 10,
+          material_index: 1,
+        });
       }
 
-      out.bricks.push(newBrick);
+      for (let i = 0; i < state.wires.length; ++i) {
+        const brick = state.wires[i];
+        const on = state.groups[brick.group-1].currPower;
+        if (!on) continue;
+
+        const newBrick = {
+          position: [brick.position[0], brick.position[1], brick.position[2] + 2],
+          asset_name_index: 0, // regular brick
+          size: brick.normal_size,
+          color: brick.color,
+          direction: 4,
+          rotation: 0,
+          collision: {
+            tool: false,
+            player: false,
+            interaction: false,
+            weapon: false,
+          },
+          material_intensity: on ? 7 : 0,
+          material_index: 1,
+        };
+
+        // use properly scaled microwedges if configured
+        if (MULTI_FRAME_MODE) {
+          newBrick.asset_name_index = 1;
+          newBrick.size = [
+            brick.normal_size[axis[0]],
+            brick.normal_size[axis[1]],
+            brick.normal_size[axis[2]],
+          ];
+          newBrick.direction = orientation.direction;
+          newBrick.rotation = orientation.rotation;
+        }
+
+        if (brick.normal_size[2] > 1) {
+          newBrick.position[2] += brick.normal_size[2] - 1;
+          newBrick.size = [brick.normal_size[0], brick.normal_size[0], 1];
+        }
+
+        out.bricks.push(newBrick);
+      }
+      await Omegga.loadSaveData(out, {quiet: true});
+      // clear previous owner after loading bricks to reduce flicker
+      if (MULTI_FRAME_MODE)
+        await Omegga.clearBricks(prevOwner, {quiet: true});
+    } catch (err) {
+      console.error('render error', err);
     }
-    await Omegga.loadSaveData(out, {quiet: true});
-    // clear previous owner after loading bricks to reduce flicker
-    if (MULTI_FRAME_MODE)
-      await Omegga.clearBricks(prevOwner, {quiet: true});
   }
 
   async init() {
     Omegga.on('cmd:stop', async n => {
-      if (!Omegga.getPlayer(n).isHost()) return;
+      if (!this.isAuthorized(n)) return;
       this.running = false;
+      Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> paused the simulation."`)
     });
 
     Omegga.on('cmd:next', async (n, amount, speed) => {
       try {
-        if (!Omegga.getPlayer(n).isHost()) return;
+        if (!this.isAuthorized(n)) return;
 
-        if (this.running) return;
+        if (this.running || !this.state) return;
+
 
         const times = amount && amount.match(/^\d+$/) ? +amount : 1;
         const wait = speed && speed.match(/^\d+$/) ? +speed : 500;
         this.running = true;
 
+        if (times === 1)
+          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> simulated a single frame."`)
+        else
+          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times*wait/1000)} seconds."`)
+
         for (let i = 0; i < times; i++) {
           const state = this.state;
           if (!this.running || !state) return;
           state.next();
-          await Logic.renderState(state);
-          await sleep(wait);
+          await this.renderState();
+          if (times !== 1)
+            await sleep(wait);
         }
         this.running = false;
 
@@ -138,33 +176,38 @@ module.exports = class Logic {
 
     Omegga.on('cmd:go', async n => {
       try {
-        if (!Omegga.getPlayer(n).isHost()) return;
+        if (!this.isAuthorized(n)) return;
+        Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started logic simulation."`)
 
         const data = await Omegga.getSaveData();
 
         // get the state of the logic
+        const start = Date.now();
         const state = new Simulator(data, global.OMEGGA_UTIL);
+        const duration = (Date.now()-start)/1000;
         this.state = state;
 
-        Omegga.broadcast('"Stats:"');
-        Omegga.broadcast(`"- read ${data.brick_count} bricks"`);
-        Omegga.broadcast(`"- detected ${state.wires.length} wires"`);
-        Omegga.broadcast(`"- detected ${state.groups.length} groups"`);
-        Omegga.broadcast(`"- detected ${state.gates.length} gates"`);
+        Omegga.broadcast('"<b><color=\\"aaaaff\\">Simulation Compile Stats</></>"');
+        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- read ${data.brick_count} bricks</></></>"`);
+        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.wires.length} wires</></></>"`);
+        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.groups.length} groups</></></>"`);
+        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.gates.length} gates</></></>"`);
+        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- took ${duration.toLocaleString()} seconds</></></>"`);
 
         await Omegga.clearBricks(owners[0], {quiet: true});
         await Omegga.clearBricks(owners[1], {quiet: true});
 
         state.next();
-        await Logic.renderState(state);
+        this.renderState();
 
       } catch (err) {
         console.error(err);
       }
     });
     Omegga.on('cmd:clg', async n => {
-      if (!Omegga.getPlayer(n).isHost()) return;
+      if (!this.isAuthorized(n)) return;
       this.running = false;
+      Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> cleared logic bricks."`)
       await Omegga.clearBricks(owners[0], {quiet: true});
       await Omegga.clearBricks(owners[1], {quiet: true});
     });
