@@ -227,6 +227,7 @@ module.exports = class Logic {
         const isClipboard = args.includes('c');
         const isRunning = args.includes('r');
         const hideWires = args.includes('w');
+        this.running = false;
         Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> compiled ${isClipboard ? 'clipboard ':''}logic simulation${hideWires?' without wires':''}."`)
 
         const data = await (isClipboard ? Omegga.getPlayer(n).getTemplateBoundsData() : Omegga.getSaveData());
@@ -235,7 +236,7 @@ module.exports = class Logic {
 
         if (isRunning) {
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation."`)
-          this.runSim(10000, 500);
+          this.runSim(10000, 500, 1);
         }
 
       } catch (err) {
