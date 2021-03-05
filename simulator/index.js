@@ -30,11 +30,16 @@ Gate.registerSpecial(require('./gates/memory.js'));
 module.exports = class Simulator {
   constructor(save, util) {
     this.util = util;
+    this.hideWires = false;
     this.frame = 0;
     this.save = save;
     this.colors = save.colors;
     this.tree = new ChunkTree(-1);
     this.compile();
+  }
+
+  showWires(val) {
+    this.hideWires = !val;
   }
 
   compile() {

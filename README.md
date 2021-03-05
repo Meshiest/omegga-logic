@@ -90,8 +90,10 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 * `/go` - compile the simulation
   * `/go c` - compile the simulation for only bricks in clipboard
   * `/go r` - automatically run the next 10000 frames
-  * `/go rc` - compile + auto run next 10k
+  * `/go rc` - clipboard + auto run next 10k
+  * `/go w` - run without rendering wires (outputs only)
 * `/next` - render the next frame of the simulation
   * `/next 500 100` - render the next 500 frames of the simulation at 10fps (100ms per frame)
+  * `/next 500 100 5` - render the next 500 frames of the simulation at 50fps (100ms per 5 frames)
 * `/clg` - clear wire signal bricks
 * `!press` - press buttons/levers

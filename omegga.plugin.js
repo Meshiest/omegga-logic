@@ -79,50 +79,51 @@ module.exports = class Logic {
       for (let i = 0; i < state.outputs.length; ++i) {
         const gate = state.outputs[i];
         if (gate.on)
-          out.bricks.push(...gate.getOutput());
+          out.bricks.push(...gate.getOutput(state));
       }
 
-      for (let i = 0; i < state.wires.length; ++i) {
-        const brick = state.wires[i];
-        const on = state.groups[brick.group-1].currPower;
-        if (!on) continue;
+      if (!state.hideWires)
+        for (let i = 0; i < state.wires.length; ++i) {
+          const brick = state.wires[i];
+          const on = state.groups[brick.group-1].currPower;
+          if (!on) continue;
 
-        const newBrick = {
-          position: [brick.position[0], brick.position[1], brick.position[2] + 2],
-          asset_name_index: 0, // regular brick
-          size: brick.normal_size,
-          color: brick.color,
-          direction: 4,
-          rotation: 0,
-          collision: {
-            tool: false,
-            player: false,
-            interaction: false,
-            weapon: false,
-          },
-          material_intensity: on ? 7 : 0,
-          material_index: 1,
-        };
+          const newBrick = {
+            position: [brick.position[0], brick.position[1], brick.position[2] + 2],
+            asset_name_index: 0, // regular brick
+            size: brick.normal_size,
+            color: brick.color,
+            direction: 4,
+            rotation: 0,
+            collision: {
+              tool: false,
+              player: false,
+              interaction: false,
+              weapon: false,
+            },
+            material_intensity: on ? 7 : 0,
+            material_index: 1,
+          };
 
-        // use properly scaled microwedges if configured
-        if (MULTI_FRAME_MODE) {
-          newBrick.asset_name_index = 1;
-          newBrick.size = [
-            brick.normal_size[axis[0]],
-            brick.normal_size[axis[1]],
-            brick.normal_size[axis[2]],
-          ];
-          newBrick.direction = orientation.direction;
-          newBrick.rotation = orientation.rotation;
+          // use properly scaled microwedges if configured
+          if (MULTI_FRAME_MODE) {
+            newBrick.asset_name_index = 1;
+            newBrick.size = [
+              brick.normal_size[axis[0]],
+              brick.normal_size[axis[1]],
+              brick.normal_size[axis[2]],
+            ];
+            newBrick.direction = orientation.direction;
+            newBrick.rotation = orientation.rotation;
+          }
+
+          if (brick.normal_size[2] > 1) {
+            newBrick.position[2] += brick.normal_size[2] - 1;
+            newBrick.size = [brick.normal_size[0], brick.normal_size[0], 1];
+          }
+
+          out.bricks.push(newBrick);
         }
-
-        if (brick.normal_size[2] > 1) {
-          newBrick.position[2] += brick.normal_size[2] - 1;
-          newBrick.size = [brick.normal_size[0], brick.normal_size[0], 1];
-        }
-
-        out.bricks.push(newBrick);
-      }
       await Omegga.loadSaveData(out, {quiet: true});
       // clear previous owner after loading bricks to reduce flicker
       if (MULTI_FRAME_MODE)
@@ -133,7 +134,7 @@ module.exports = class Logic {
   }
 
   // run a sim with the provided data
-  async simWithData(data) {
+  async simWithData(data, options={}) {
     // get the state of the logic
     const start = Date.now();
     const state = new Simulator(data, global.OMEGGA_UTIL);
@@ -150,13 +151,16 @@ module.exports = class Logic {
     await Omegga.clearBricks(owners[1], {quiet: true});
     await Omegga.clearBricks(owners[2], {quiet: true});
 
+    if (options.hideWires)
+      state.showWires(false);
+
     state.next();
     this.state = state;
     this.renderState();
   }
 
   // run the simulator a number of times, w/ wait ms between frames
-  async runSim(times, wait) {
+  async runSim(times, wait, skip) {
     if (this.running) return;
     this.running = true;
 
@@ -164,9 +168,11 @@ module.exports = class Logic {
       const state = this.state;
       if (!this.running || !state) return;
       state.next();
-      await this.renderState();
-      if (times !== 1)
-        await sleep(wait);
+      if (i % skip === 0 || i === times-1) {
+        await this.renderState();
+        if (times !== 1)
+          await sleep(wait);
+      }
     }
     this.running = false;
   }
@@ -178,7 +184,7 @@ module.exports = class Logic {
       Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> paused the simulation."`)
     });
 
-    Omegga.on('cmd:next', async (n, amount, speed) => {
+    Omegga.on('cmd:next', async (n, amount, speed, skip) => {
       try {
         if (!this.isAuthorized(n)) return;
 
@@ -186,13 +192,14 @@ module.exports = class Logic {
 
         const times = amount && amount.match(/^\d+$/) ? +amount : 1;
         const wait = speed && speed.match(/^\d+$/) ? +speed : 500;
+        const skipAmt = skip && skip.match(/^\d+$/) ? +skip : 1;
 
          if (times === 1)
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> simulated a single frame."`)
         else
-          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times*wait/1000)} seconds (${Math.round(1000/wait)} tps)."`)
+          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times/skip*wait/1000)} seconds (${Math.round(1000/wait*skip)} tps)."`)
 
-        this.runSim(times, wait);
+        this.runSim(times, wait, skipAmt);
 
       } catch (err) {
         console.error(err);
@@ -219,11 +226,12 @@ module.exports = class Logic {
         if (!this.isAuthorized(n)) return;
         const isClipboard = args.includes('c');
         const isRunning = args.includes('r');
-        Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> compiled ${isClipboard ? 'clipboard ':''}logic simulation."`)
+        const hideWires = args.includes('w');
+        Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> compiled ${isClipboard ? 'clipboard ':''}logic simulation${hideWires?' without wires':''}."`)
 
         const data = await (isClipboard ? Omegga.getPlayer(n).getTemplateBoundsData() : Omegga.getSaveData());
         if (!data) return;
-        await this.simWithData(data);
+        await this.simWithData(data, {hideWires});
 
         if (isRunning) {
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation."`)

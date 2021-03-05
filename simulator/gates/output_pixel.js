@@ -15,6 +15,11 @@ module.exports = class PixelOutput extends OutputGate {
         plate.normal_size[1],
         1,
       ],
+      normal_size: [
+        plate.normal_size[0],
+        plate.normal_size[1],
+        1,
+      ],
       color: [255, 255, 255],
       collision: {
         tool: false,
@@ -22,12 +27,28 @@ module.exports = class PixelOutput extends OutputGate {
         interaction: false,
         weapon: false,
       },
-      owner_index: 2,
+      owner_index: 1,
       material_index: 7,
       material_index: 1,
     };
   }
-  getOutput() {
+  getOutput(sim) {
+    const orientation = {direction: sim.frame % 2 ? 0 : 0, rotation: sim.frame % 2 ? 2 : 0};
+    const axis = [
+      sim.util.brick.getScaleAxis(orientation, 0),
+      sim.util.brick.getScaleAxis(orientation, 1),
+      sim.util.brick.getScaleAxis(orientation, 2),
+    ];
+
+    this.meta.output.asset_name_index = 1;
+    this.meta.output.size = [
+      this.meta.output.normal_size[axis[0]],
+      this.meta.output.normal_size[axis[1]],
+      this.meta.output.normal_size[axis[2]],
+    ];
+    this.meta.output.direction = orientation.direction;
+    this.meta.output.rotation = orientation.rotation;
+
     return [this.meta.output];
   }
 };
