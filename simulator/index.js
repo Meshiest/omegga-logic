@@ -16,6 +16,8 @@ Gate.registerGate(require('./gates/gate_buffer.js'));
 Gate.registerGate(require('./gates/input_button.js'));
 Gate.registerGate(require('./gates/input_lever.js'));
 
+Gate.registerGate(require('./gates/output_pixel.js'));
+
 Gate.registerSpecial(require('./gates/latch_sr.js'));
 Gate.registerSpecial(require('./gates/flipflop_d.js'));
 Gate.registerSpecial(require('./gates/flipflop_jk.js'));
@@ -40,6 +42,7 @@ module.exports = class Simulator {
     this.wires = [];
     this.groups = [];
     this.gates = [];
+    this.outputs = [];
     this.errors = [];
 
     benchStart('build');
@@ -59,6 +62,9 @@ module.exports = class Simulator {
         brick.gate = this.gates.length;
         gate.brick = i;
         this.gates.push(gate);
+        if (gate.isOutput) {
+          this.outputs.push(gate);
+        }
       }
 
       // if the brick is a wire, add it to the list of wires

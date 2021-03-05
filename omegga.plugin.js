@@ -9,6 +9,9 @@ const owners = [{
 }, {
   name: 'logicbrick2',
   id: '94e3f858-452d-4b07-9eff-e82a7a7bd735',
+}, {
+  name: 'logicbrickout',
+  id: '94e3f858-452d-4b07-9eff-e82a7a7bd736',
 }];
 
 // enable wedge wire power visualization (no flickering)
@@ -35,11 +38,12 @@ module.exports = class Logic {
     try {
       const { state } = this;
       const owner =  MULTI_FRAME_MODE ? owners[1 - state.frame % 2] : owners[0];
+      const outputOwner =  owners[2];
       const prevOwner = owners[state.frame % 2];
 
       const out = {
-        version: 10,
-        brick_owners: [owner],
+        version: state.save.version,
+        brick_owners: [owner, outputOwner],
         materials: ['BMC_Plastic', 'BMC_Glow'],
         brick_assets: ['PB_DefaultMicroBrick', 'PB_DefaultMicroWedge'],
         colors: state.colors,
@@ -56,6 +60,7 @@ module.exports = class Logic {
       // clear owner bricks (causes flash)
       if (!MULTI_FRAME_MODE)
         await Omegga.clearBricks(owner, {quiet: true});
+      await Omegga.clearBricks(outputOwner, {quiet: true});
 
       for (let i = 0; i < state.errors.length; ++i) {
         const error = state.errors[i];
@@ -69,6 +74,12 @@ module.exports = class Logic {
           material_intensity: 10,
           material_index: 1,
         });
+      }
+
+      for (let i = 0; i < state.outputs.length; ++i) {
+        const gate = state.outputs[i];
+        if (gate.on)
+          out.bricks.push(...gate.getOutput());
       }
 
       for (let i = 0; i < state.wires.length; ++i) {
@@ -196,6 +207,7 @@ module.exports = class Logic {
 
         await Omegga.clearBricks(owners[0], {quiet: true});
         await Omegga.clearBricks(owners[1], {quiet: true});
+        await Omegga.clearBricks(owners[2], {quiet: true});
 
         state.next();
         this.renderState();
@@ -210,6 +222,7 @@ module.exports = class Logic {
       Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> cleared logic bricks."`)
       await Omegga.clearBricks(owners[0], {quiet: true});
       await Omegga.clearBricks(owners[1], {quiet: true});
+      await Omegga.clearBricks(owners[2], {quiet: true});
     });
 
     return {registeredCommands: ['clg', 'go', 'next', 'stop']};

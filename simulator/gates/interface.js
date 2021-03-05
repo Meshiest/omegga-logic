@@ -5,7 +5,11 @@ class LogicGate {
   static getMarker() { throw 'unimplemented getMarker'; }
   static getMarkerCount() { return 1; }
   static getName() { throw 'unimplemented getName'; }
-  static isValid(brick, markers, sim) { throw 'unimplemented isValid'; }
+
+  // if the brick needs to extend the metadata at build time, it can do it here
+  // be careful putting the provided arguments in the meta as it may create a cyclic
+  // object which may hurt performance
+  static extendMeta(meta, {brick, sim, markerBricks, markers, indicator}) {}
   evaluate(sim) { throw 'unimplemented evaluate'; }
 
   constructor(brick, meta) {
@@ -22,7 +26,35 @@ class LogicGate {
 
 // gates specifically for output
 class OutputGate extends LogicGate {
-  // unimplemented
+  constructor(brick, meta) {
+    super(brick, meta);
+    this.isOutput = true;
+    this.on = false;
+  }
+
+  // get the brick output
+  getOutput() { return []; }
+
+  // output gate evaluations do not need to be re-implemented
+  // this sets "on" for the output gate
+  evaluate(sim) {
+    // ignore pointless outputs
+    if (this.inputs.size === 0) return;
+    this.on = sim.getGroupPower(this.inputs).some(s => s);
+  }
+
+  findConnections(sim) {
+    // output gates only have inputs
+    this.inputs = new Set();
+    for (let i = 0; i < 4; ++i) {
+      for (const j of searchBoundsSide(sim.tree, this.meta.bounds, i)) {
+        const group = sim.save.bricks[j].group;
+        if (group) {
+          this.inputs.add(group);
+        }
+      }
+    }
+  }
 }
   // gates specifically for player input
 class InputGate extends LogicGate {

@@ -160,14 +160,17 @@ class Gate {
       }
     }
 
-
     // get the gate's rotation
     const direction = getDirection(brick.position, indicator.position);
 
-    return new Gate(brick, {
+    const meta = {
       bounds: brick.bounds, position: brick.position,
       inverted, direction, connectables,
-    }, sim);
+    };
+
+    Gate.extendMeta(meta, {brick, sim, markerBricks, markers, indicator});
+
+    return new Gate(brick, meta);
   }
 };
 
