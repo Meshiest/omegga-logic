@@ -12,7 +12,6 @@ class LogicGate {
     this.brick = brick;
     this.meta = meta;
     this.gate = this.constructor.getName();
-    this.init();
   }
   init() {}
   findConnections(sim) {}
@@ -66,13 +65,15 @@ class SimpleGate extends LogicGate {
   // gates that have special inputs and outputs based on markers
 class SpecialGate extends LogicGate {
   static getConnectables() { return {}; };
+  // determine if the provided connectables are OK, return the error otherwise
+  static validateConnectables(markers) { return; };
   findConnections(sim) {
     this.connections = {};
     const order = [
-      (a, b) => a.min.y - b.min.y,
-      (a, b) => b.min.x - a.min.x,
-      (a, b) => b.min.y - a.min.y,
-      (a, b) => a.min.x - b.min.x,
+      (a, b) => (a.min.y - b.min.y) || (a.min.x - b.min.x) || 0,
+      (a, b) => (b.min.x - a.min.x) || (a.min.y - b.min.y) || 0,
+      (a, b) => (b.min.y - a.min.y) || (b.min.x - a.min.x) || 0,
+      (a, b) => (a.min.x - b.min.x) || (b.min.y - a.min.y) || 0,
     ][this.meta.direction];
 
     for (const connType in this.meta.connectables) {

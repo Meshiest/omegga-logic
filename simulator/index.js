@@ -21,7 +21,8 @@ Gate.registerSpecial(require('./gates/flipflop_d.js'));
 Gate.registerSpecial(require('./gates/flipflop_jk.js'));
 Gate.registerSpecial(require('./gates/adder.js'));
 
-// Gate.registerSpecial(require('./gates/test_memory.js'));
+Gate.registerSpecial(require('./gates/multiplexer.js'));
+Gate.registerSpecial(require('./gates/memory.js'));
 
 // logic simulator
 module.exports = class Simulator {
@@ -96,6 +97,7 @@ module.exports = class Simulator {
     for (let i = 0; i < this.gates.length; ++i) {
       const gate = this.gates[i];
       gate.findConnections(this);
+      gate.init();
     }
     benchEnd('gates');
     benchEnd('build');
@@ -105,7 +107,7 @@ module.exports = class Simulator {
 
   // set the next power of a group
   setGroupPower(set, value) {
-    if (!set) return;
+    if (!set || !value) return;
     // set the groups next power
     for (const o of set) {
       const group = this.groups[o-1];

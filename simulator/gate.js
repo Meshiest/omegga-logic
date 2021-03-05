@@ -17,6 +17,7 @@ class Gate {
     B_1x1F_Round: 'reset',
     B_1x1F_Octo: 'clock',
     B_Small_Flower: 'clr',
+    PB_DefaultTile: 'write',
     PB_DefaultRampCrestCorner: '',
     PB_DefaultMicroWedgeCorner: '',
     PB_DefaultSideWedgeTile: '',
@@ -132,6 +133,11 @@ class Gate {
           return 'error';
         }
         connectables[ioType] = items.map(i => i.bounds);
+      }
+      const err = Gate.validateConnectables(connectables);
+      if (err) {
+        console.log('!!', Gate.getName(), '@', brick.position, 'invalid connections:', err);
+        return 'error';
       }
     } else {
       // find the regular gate indicator
