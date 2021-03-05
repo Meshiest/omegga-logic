@@ -1,4 +1,4 @@
-const { isAsset, isMaterial } = require('./util.js');
+const { isAsset, isMaterial, isBlack } = require('./util.js');
 
 module.exports = class Wire {
   // build wire groupings
@@ -19,7 +19,7 @@ module.exports = class Wire {
       // iterate through neighboring bricks, add all wires to the neighbor list
       for (const j of neighboringBricks) {
         const b = sim.save.bricks[j];
-        if (typeof b.wire !== 'undefined' && a.color === b.color) {
+        if (typeof b.wire !== 'undefined' && (a.color === b.color || isBlack(sim.save.colors[a.color]))) {
           a.neighbors.add(b.wire);
           b.neighbors.add(i);
         }

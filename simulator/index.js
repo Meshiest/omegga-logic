@@ -53,7 +53,7 @@ module.exports = class Simulator {
 
     benchStart('selection');
     // classify each brick from the save
-    for (let i = 0; i < this.save.brick_count; ++i) {
+    for (let i = 0; i < this.save.bricks.length; ++i) {
       const brick = this.save.bricks[i];
       // if a brick is a gate, store the gate
       const gate = Gate.isGate(brick, this);

@@ -3,18 +3,27 @@ module.exports = class Adder extends SpecialGate {
   static getName() { return 'adder'; }
   static getMarker() { return 'PB_DefaultMicroWedge'; }
   static getMarkerCount() { return 4; }
-  static getConnectables() { return {input: n => n === 2 || n === 3, secondary: 1, output: 1}; }
+  static getConnectables() { return {input: n => n > 1, output: n => n > 1 && n <= 32}; }
+  static validateConnectables(markers) {
+    if (markers.input.length > (1<<markers.output.length))
+      return `not enough outputs for given number of inputs`;
+    return;
+  };
   init() {
     this.state = false;
   }
   evaluate(sim) {
-    // ignore pointless gates
-    if (this.connections.output[0].size === 0) return;
+    const { output: outputs, input: inputs } = this.connections;
 
-    const values = this.connections.input.map(val => sim.getGroupPower(val).some(s => s));
-    const sum = values[0] + values[1] + (values.length > 2 ? values[2] : 0)
+    let sum = 0;
+    for (const input of inputs) {
+      if (sim.getGroupPower(input).some(s => s) !== input.inverted)
+        ++sum;
+    }
 
-    sim.setGroupPower(this.connections.secondary[0], sum > 1);
-    sim.setGroupPower(this.connections.output[0], sum % 2 === 1);
+    for (let i = 0; i < outputs.length; i++) {
+      const o = outputs[i];
+      sim.setGroupPower(o, (!!(sum & (1<<i))) !== o.inverted);
+    }
   }
 };

@@ -3,23 +3,23 @@ module.exports = class DFlipFlop extends SpecialGate {
   static getName() { return 'd_flipflop'; }
   static getMarker() { return 'PB_DefaultMicroWedge'; }
   static getMarkerCount() { return 2; }
-  static getConnectables() { return {input: 1, clock: 1, output: 1}; }
+  static getConnectables() { return {input: 1, clock: 1, output: n => n > 0}; }
   init() {
     this.state = false;
-    this.lastClock = false;
+    this.lastClock = this.connections.clock[0].inverted;
   }
   evaluate(sim) {
-    // ignore pointless gates
-    if (this.connections.output[0].size === 0) return;
+    const { clock: [clock], input: [input], output: outputs} = this.connections;
 
-    const clock = sim.getGroupPower(this.connections.clock[0]).some(s => s);
+    const curClock = sim.getGroupPower(clock).some(s => s) !== clock.inverted;
 
     // clock on rising edge only
-    if (clock && !this.lastClock) {
-      this.state = sim.getGroupPower(this.connections.input[0]).some(s => s);
+    if (curClock && !this.lastClock) {
+      this.state = sim.getGroupPower(input).some(s => s) !== input.inverted;
     }
-    this.lastClock = clock;
+    this.lastClock = curClock;
 
-    sim.setGroupPower(this.connections.output[0], this.state);
+    for (const o of outputs)
+      sim.setGroupPower(o, this.state !== o.inverted);
   }
 };

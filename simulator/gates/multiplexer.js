@@ -14,23 +14,23 @@ module.exports = class Multiplexer extends SpecialGate {
   static getConnectables() { return {
     input: n => n > 0, // inputs
     secondary: n => n > 0, // addresses
-    output: 1, // output
+    output: n => n > 0, // output
   }; }
   init() {
     this.addrSize = Math.log2(this.connections.input.length);
   }
   evaluate(sim) {
+    const { secondary: secondaries, input: inputs, output: outputs } = this.connections;
     // determine address based on the secondaries
     let addr = 0;
-    for (let i = 0; i < this.connections.secondary.length; i++) {
-      if (sim.getGroupPower(this.connections.secondary[i]).some(g=>g))
+    for (let i = 0; i < secondaries.length; i++) {
+      if (sim.getGroupPower(secondaries[i]).some(g=>g) !== secondaries[i].inverted)
         addr |= 1<<i;
     }
 
     // set output to the power of the selected input
-    sim.setGroupPower(
-      this.connections.output[0],
-      sim.getGroupPower(this.connections.input[addr]).some(g=>g),
-    );
+    const output = sim.getGroupPower(inputs[addr]).some(g=>g) !== inputs[addr].inverted;
+    for (const o of outputs)
+      sim.setGroupPower(o, output !== o.inverted);
   }
 };

@@ -132,6 +132,45 @@ module.exports = class Logic {
     }
   }
 
+  // run a sim with the provided data
+  async simWithData(data) {
+    // get the state of the logic
+    const start = Date.now();
+    const state = new Simulator(data, global.OMEGGA_UTIL);
+    const duration = (Date.now()-start)/1000;
+
+    Omegga.broadcast('"<b><color=\\"aaaaff\\">Simulation Compile Stats</></>"');
+    Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- read ${data.bricks.length} bricks</></></>"`);
+    Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.wires.length} wires</></></>"`);
+    Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.groups.length} groups</></></>"`);
+    Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.gates.length} gates</></></>"`);
+    Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- took ${duration.toLocaleString()} seconds</></></>"`);
+
+    await Omegga.clearBricks(owners[0], {quiet: true});
+    await Omegga.clearBricks(owners[1], {quiet: true});
+    await Omegga.clearBricks(owners[2], {quiet: true});
+
+    state.next();
+    this.state = state;
+    this.renderState();
+  }
+
+  // run the simulator a number of times, w/ wait ms between frames
+  async runSim(times, wait) {
+    if (this.running) return;
+    this.running = true;
+
+    for (let i = 0; i < times; i++) {
+      const state = this.state;
+      if (!this.running || !state) return;
+      state.next();
+      await this.renderState();
+      if (times !== 1)
+        await sleep(wait);
+    }
+    this.running = false;
+  }
+
   async init() {
     Omegga.on('cmd:stop', async n => {
       if (!this.isAuthorized(n)) return;
@@ -145,25 +184,15 @@ module.exports = class Logic {
 
         if (this.running || !this.state) return;
 
-
         const times = amount && amount.match(/^\d+$/) ? +amount : 1;
         const wait = speed && speed.match(/^\d+$/) ? +speed : 500;
-        this.running = true;
 
-        if (times === 1)
+         if (times === 1)
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> simulated a single frame."`)
         else
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times*wait/1000)} seconds (${Math.round(1000/wait)} tps)."`)
 
-        for (let i = 0; i < times; i++) {
-          const state = this.state;
-          if (!this.running || !state) return;
-          state.next();
-          await this.renderState();
-          if (times !== 1)
-            await sleep(wait);
-        }
-        this.running = false;
+        this.runSim(times, wait);
 
       } catch (err) {
         console.error(err);
@@ -185,37 +214,27 @@ module.exports = class Logic {
       }
     });
 
-    Omegga.on('cmd:go', async n => {
+    Omegga.on('cmd:go', async (n, args='') => {
       try {
         if (!this.isAuthorized(n)) return;
-        Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started logic simulation."`)
+        const isClipboard = args.includes('c');
+        const isRunning = args.includes('r');
+        Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> compiled ${isClipboard ? 'clipboard ':''}logic simulation."`)
 
-        const data = await Omegga.getSaveData();
+        const data = await (isClipboard ? Omegga.getPlayer(n).getTemplateBoundsData() : Omegga.getSaveData());
+        if (!data) return;
+        await this.simWithData(data);
 
-        // get the state of the logic
-        const start = Date.now();
-        const state = new Simulator(data, global.OMEGGA_UTIL);
-        const duration = (Date.now()-start)/1000;
-        this.state = state;
-
-        Omegga.broadcast('"<b><color=\\"aaaaff\\">Simulation Compile Stats</></>"');
-        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- read ${data.brick_count} bricks</></></>"`);
-        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.wires.length} wires</></></>"`);
-        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.groups.length} groups</></></>"`);
-        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.gates.length} gates</></></>"`);
-        Omegga.broadcast(`"<code><color=\\"ffffff\\"><size=\\"15\\">- took ${duration.toLocaleString()} seconds</></></>"`);
-
-        await Omegga.clearBricks(owners[0], {quiet: true});
-        await Omegga.clearBricks(owners[1], {quiet: true});
-        await Omegga.clearBricks(owners[2], {quiet: true});
-
-        state.next();
-        this.renderState();
+        if (isRunning) {
+          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation."`)
+          this.runSim(10000, 500);
+        }
 
       } catch (err) {
         console.error(err);
       }
     });
+
     Omegga.on('cmd:clg', async n => {
       if (!this.isAuthorized(n)) return;
       this.running = false;

@@ -8,10 +8,11 @@ const benchEnd = name => console.info(name, 'took', (Date.now()-times[name])/100
 // check an asset/material for a match
 const isAsset = (save, brick, name) => save.brick_assets[brick.asset_name_index] === name;
 const isMaterial = (save, brick, name) => save.materials[brick.material_index] === name;
+const isBlack = ([r, g, b,]) => !r && !g && !b;
 
 // convert a save to an octtree
 const populateTreeFromSave = (save, tree, util) => {
-  for (let i = 0; i < save.brick_count; i++) {
+  for (let i = 0; i < save.bricks.length; i++) {
     const brick = save.bricks[i];
     // get normalized sizes for every brick
     const normal_size = util.brick.getBrickSize(brick, save.brick_assets);
@@ -61,7 +62,7 @@ const getDirection = (a, b) =>
 
 module.exports = {
   benchStart, benchEnd,
-  isAsset, isMaterial,
+  isAsset, isMaterial, isBlack,
   getDirection,
 
   populateTreeFromSave,

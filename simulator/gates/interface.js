@@ -123,6 +123,7 @@ class SpecialGate extends LogicGate {
         };
 
         sets[n] = new Set();
+        sets[n].inverted = nodes[n].inverted;
         for (let i = 0; i < 4; ++i) {
           for (const j of searchBoundsSide(sim.tree, bound, i)) {
             const group = sim.save.bricks[j].group;

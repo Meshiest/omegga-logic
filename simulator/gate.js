@@ -132,7 +132,11 @@ class Gate {
           console.log('!!', Gate.getName(), '@', brick.position, 'has unsatisifed', ioType);
           return 'error';
         }
-        connectables[ioType] = items.map(i => i.bounds);
+        connectables[ioType] = items.map(i => {
+          const bounds = i.bounds;
+          bounds.inverted = i.direction === 5;
+          return bounds;
+        });
       }
       const err = Gate.validateConnectables(connectables);
       if (err) {
