@@ -223,6 +223,21 @@ module.exports = class Logic {
       }
     });
 
+    Omegga.on('cmd:press', async n => {
+      try {
+        const player = Omegga.getPlayer(n);
+        const pos = await player.getPosition();
+        const gate = this.state.gates.find(g => g.isInput &&
+          Math.hypot(g.meta.position[0]-pos[0], g.meta.position[1]-pos[1]) < 10);
+        if (gate) {
+          gate.interact();
+          Omegga.whisper(player, `"interacted with ${gate.gate}"`);
+        }
+      } catch (err) {
+        // no player
+      }
+    });
+
     Omegga.on('cmd:go', async (n, args='') => {
       try {
         if (!this.isAuthorized(n)) return;
@@ -255,7 +270,7 @@ module.exports = class Logic {
       await Omegga.clearBricks(owners[2], {quiet: true});
     });
 
-    return {registeredCommands: ['clg', 'go', 'next', 'stop']};
+    return {registeredCommands: ['clg', 'go', 'next', 'stop', 'press']};
   }
 
   async stop() {
