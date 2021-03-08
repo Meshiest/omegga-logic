@@ -20,11 +20,11 @@ module.exports = class Memory extends SpecialGate {
       Uint8Array,
       Uint8Array,
       Uint8Array,
-      Uint16Array,
+      Uint8Array,
       Uint16Array,
       Uint32Array,
       BigUint64Array,
-    ][Math.floor(Math.log2(this.connections.input.length))];
+    ][Math.ceil(Math.log2(this.connections.input.length))];
 
     // create an array of elements based on the size of the input
     this.data = new DataClass(numAddrs);
