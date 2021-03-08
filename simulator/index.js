@@ -42,6 +42,10 @@ module.exports = class Simulator {
     this.hideWires = !val;
   }
 
+  incFrame() {
+    ++this.frame;
+  }
+
   compile() {
     console.log(' -- build started');
     this.wires = [];
@@ -136,7 +140,6 @@ module.exports = class Simulator {
   }
 
   next() {
-    ++this.frame;
     for (const gate of this.gates) {
       // skip pointless gates
       if (gate.ignore) continue;

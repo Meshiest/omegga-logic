@@ -125,9 +125,11 @@ module.exports = class Logic {
           out.bricks.push(newBrick);
         }
       await Omegga.loadSaveData(out, {quiet: true});
+
       // clear previous owner after loading bricks to reduce flicker
       if (MULTI_FRAME_MODE)
         await Omegga.clearBricks(prevOwner, {quiet: true});
+      state.incFrame();
     } catch (err) {
       console.error('render error', err);
     }
@@ -197,7 +199,7 @@ module.exports = class Logic {
          if (times === 1)
           Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> simulated a single frame."`)
         else
-          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times/skip*wait/1000)} seconds (${Math.round(1000/wait*skip)} tps)."`)
+          Omegga.broadcast(`"<b><color=\\"ffffaa\\">${n}</></> started simulation for ${times} ticks over ${Math.round(times/skipAmt*wait/1000)} seconds (${Math.round(1000/wait*skipAmt)} tps)."`)
 
         this.runSim(times, wait, skipAmt);
 
