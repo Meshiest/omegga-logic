@@ -78,11 +78,10 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 |-|-|-|
 |`srlatch`|`input`, `reset`, `output`|standard SR latch|
 |`dflipflop`|`input`, `clock`, `output`|standard D flip flop|
-|`jkflipflop`|`input`, `clock`, `reset`, `output`|standard JK flip flop (`input`=J, `reset`=K)|
-|`jkflipflop`|`input`, `clock`, `reset`, `output`, `clr`|standard JK flip flop with a clr|
+|`jkflipflop`|`input`, `clock`, `reset`, `output` (optional `clr`)|standard JK flip flop (`input`=J, `reset`=K)|
 |`add`|`input`, `output`|an adder, counts the number of on inputs and outputs encoded value|
-|`mux`|`input`, `secondary`, `output`|a multiplexer. requires (1<<#`secondary`) inputs, `secondary` is the address, output is the value of the addressed `input`|
-|`mem`|`input`, `secondary`, `write` `output`|a memory cell. stores (1<<#`secondary`) #`input`-bit values, `secondary` is the address. writes only when `write` is on, outputs the currently addressed cell. There must be an equal number of inputs and outputs.|
+|`mux`|`input`, `secondary`, `output`|a multiplexer. requires ((1<<#`secondary`)*#`output`) inputs, `secondary` is the address, output is the value of the addressed `input`|
+|`mem`|`input`, `secondary`, (`write` OR `clock`), `output`, (optional `clr`)|a memory cell. stores (1<<#`secondary`) #`input`-bit values, `secondary` is the address. writes only when `write` is on or `clock` is clocked, outputs the currently addressed cell. There must be an equal number of inputs and outputs. `clr` clears all data.|
 
 
 ## Commands

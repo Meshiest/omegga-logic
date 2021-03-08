@@ -4,9 +4,13 @@ module.exports = class Multiplexer extends SpecialGate {
   static getMarker() { return 'PB_DefaultMicroWedgeTriangleCorner'; }
   static getMarkerCount() { return 1; }
   static validateConnectables(markers) {
-    const addrSize = Math.log2(markers.input.length);
+    const numInput = markers.input.length;
+    const numOutput = markers.output.length;
+    const addrSize = Math.log2(numInput / numOutput);
+    if (numInput % numOutput !== 0)
+      return `#inputs must be divisible by #outputs`;
     if (addrSize % 1 !== 0)
-      return `number of inputs must be a power of 2 (have ${markers.input.length})`;
+      return `(#inputs/#output) must be a power of 2 (have ${numInput} in, ${numOutput} out)`;
     if (addrSize !== markers.secondary.length)
       return `not enough address inputs (expected ${addrSize})`;
     return;
@@ -23,14 +27,16 @@ module.exports = class Multiplexer extends SpecialGate {
     const { secondary: secondaries, input: inputs, output: outputs } = this.connections;
     // determine address based on the secondaries
     let addr = 0;
-    for (let i = 0; i < secondaries.length; i++) {
+    for (let i = 0; i < secondaries.length; ++i) {
       if (sim.getGroupPower(secondaries[i]).some(g=>g) !== secondaries[i].inverted)
         addr |= 1<<i;
     }
 
     // set output to the power of the selected input
-    const output = sim.getGroupPower(inputs[addr]).some(g=>g) !== inputs[addr].inverted;
-    for (const o of outputs)
-      sim.setGroupPower(o, output !== o.inverted);
+    for (let i = 0; i < outputs.length; ++i) {
+      const o = outputs[i];
+      const input = inputs[addr * outputs.length + i];
+      sim.setGroupPower(o, (sim.getGroupPower(input).some(g=>g) !== input.inverted) !== o.inverted);
+    }
   }
 };
