@@ -77,9 +77,9 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 |gate|connectables|description|
 |-|-|-|
 |`srlatch`|`input`, `reset`, `output`|standard SR latch|
-|`dflipflop`|`input`, `clock`, `output`|standard D flip flip|
-|`jkflipflop`|`input`, `clock`, `reset`, `output`|standard JK flip flip (`input`=J, `reset`=K)|
-|`jkflipflop`|`input`, `clock`, `reset`, `output`, `clr`|standard JK flip flip with a clr|
+|`dflipflop`|`input`, `clock`, `output`|standard D flip flop|
+|`jkflipflop`|`input`, `clock`, `reset`, `output`|standard JK flip flop (`input`=J, `reset`=K)|
+|`jkflipflop`|`input`, `clock`, `reset`, `output`, `clr`|standard JK flip flop with a clr|
 |`add`|`input`, `output`|an adder, counts the number of on inputs and outputs encoded value|
 |`mux`|`input`, `secondary`, `output`|a multiplexer. requires (1<<#`secondary`) inputs, `secondary` is the address, output is the value of the addressed `input`|
 |`mem`|`input`, `secondary`, `write` `output`|a memory cell. stores (1<<#`secondary`) #`input`-bit values, `secondary` is the address. writes only when `write` is on, outputs the currently addressed cell. There must be an equal number of inputs and outputs.|
