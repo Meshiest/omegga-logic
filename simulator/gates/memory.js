@@ -20,7 +20,7 @@ module.exports = class Memory extends SpecialGate {
       Uint8Array,
       Uint8Array,
       Uint8Array,
-      Uint8Array,
+      Uint16Array,
       Uint16Array,
       Uint32Array,
       BigUint64Array,
