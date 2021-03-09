@@ -124,7 +124,8 @@ module.exports = class Logic {
 
           out.bricks.push(newBrick);
         }
-      await Omegga.loadSaveData(out, {quiet: true});
+      if (out.bricks.length > 0)
+        await Omegga.loadSaveData(out, {quiet: true});
 
       // clear previous owner after loading bricks to reduce flicker
       if (MULTI_FRAME_MODE)
