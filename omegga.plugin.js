@@ -29,6 +29,7 @@ module.exports = class Logic {
 
   // check if a name is authorized
   isAuthorized(name) {
+    if (!this.config['only-authorized']) return true;
     const player = Omegga.getPlayer(name);
     return player.isHost() || this.config['authorized-users'].some(p => player.id === p.id);
   }
