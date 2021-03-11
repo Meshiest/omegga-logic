@@ -61,6 +61,13 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 |`button`|2x2f octo converter|when interacted, powers for 3 ticks|
 |`lever`|1x2f plate center|when interacted, toggles power|
 
+### Outputs (Render bricks)
+
+|gate|indicators|description|
+|-|-|-|
+|`1bitpixel`|tile|Renders a glowing brick above the tile when powered|
+|`rgbpixel`|micro wedge corner, micro bricks, and a tile|Renders above the baseplate with a brick 1stud bigger in each direction. Color based on bit input of the microbricks. Always ON if no tile, on if tile is powered or inverted+off|
+
 ### Special Gates
 
 #### Connectables
