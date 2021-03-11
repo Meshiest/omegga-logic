@@ -18,6 +18,7 @@ class Gate {
     B_1x1F_Octo: 'clock',
     B_Small_Flower: 'clr',
     PB_DefaultTile: 'write',
+    PB_DefaultMicroBrick: 'color',
     PB_DefaultRampCrestCorner: '',
     PB_DefaultMicroWedgeCorner: '',
     PB_DefaultSideWedgeTile: '',
@@ -101,7 +102,8 @@ class Gate {
 
         if (!Gate) {
           for (const g of this.specialGates) {
-            if (g.getMarker() === markerAsset && markers[markerAsset] === g.getMarkerCount()) {
+            const markerCount = g.getMarkerCount();
+            if (g.getMarker() === markerAsset && (markerCount < 0 || markers[markerAsset] === markerCount)) {
               Gate = g;
               break;
             }

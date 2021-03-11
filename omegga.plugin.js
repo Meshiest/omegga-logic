@@ -79,8 +79,9 @@ module.exports = class Logic {
 
       for (let i = 0; i < state.outputs.length; ++i) {
         const gate = state.outputs[i];
-        if (gate.on)
+        if (gate.on) {
           out.bricks.push(...gate.getOutput(state));
+        }
       }
 
       if (!state.hideWires)

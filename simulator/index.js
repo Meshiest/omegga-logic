@@ -25,6 +25,7 @@ Gate.registerSpecial(require('./gates/adder.js'));
 
 Gate.registerSpecial(require('./gates/multiplexer.js'));
 Gate.registerSpecial(require('./gates/memory.js'));
+Gate.registerSpecial(require('./gates/output_rgb.js'));
 
 // logic simulator
 module.exports = class Simulator {
