@@ -132,6 +132,7 @@ class Gate {
         const items = markerBricks.filter(b => this.SPECIAL_MARKERS[sim.save.brick_assets[b.asset_name_index]] === ioType);
         if (typeof req === 'function' ? !req(items.length) : req !== items.length) {
           console.log('!!', Gate.getName(), '@', brick.position, 'has unsatisifed', ioType);
+          console.log(markers);
           return 'error';
         }
         connectables[ioType] = items.map(i => {

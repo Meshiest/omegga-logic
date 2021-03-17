@@ -11,6 +11,13 @@ class Point {
     this.z = z;
   }
 
+  static rect(x, y, z, w, h, d) {
+    return [
+      new Point(x - w/2, y - h/2, z - h/2),
+      new Point(x + w/2, y + h/2, z + h/2),
+    ];
+  }
+
   // get a chunk from a point
   getChunk() {
     return new Point(
@@ -64,12 +71,33 @@ class Node {
     this.depth = depth;
     this.value = value;
     this.nodes = [];
+    this.half = Math.pow(2, this.depth - 1);
   }
 
   // determine if provided bounds perfectly completely cover this node
   wouldFillNode(min, max) {
     const size = (1<<this.depth);
     return (max.x - min.x) == size && (max.y - min.y) == size && (max.z - min.z) == size;
+  }
+
+  // true if this node is contained by the bounds
+  isInside(min, max) {
+    // check if this bounds are entirely within
+    return this.point.x - this.half >= min.x &&
+      this.point.x + this.half <= max.x &&
+      this.point.y - this.half >= min.y &&
+      this.point.y + this.half <= max.y &&
+      this.point.z - this.half >= min.z &&
+      this.point.z + this.half <= max.z;
+  }
+
+  isOutside(min, max) {
+    return this.point.x + this.half <= min.x ||
+      this.point.x - this.half >= max.x ||
+      this.point.y + this.half <= min.y ||
+      this.point.y - this.half >= max.y ||
+      this.point.z + this.half <= min.z ||
+      this.point.z - this.half >= max.z
   }
 
   // if every child node has the same value, delete them
@@ -98,46 +126,19 @@ class Node {
 
   // insert an area into the tree
   insert(value, minBound, maxBound) {
-    if (this.wouldFillNode(minBound, maxBound)) {
+    if (this.isInside(minBound, maxBound)) {
       this.value = value;
       return;
-    } else if (this.depth === 0) {
-      throw `0 depth nodes should fit in bounds (${minBound} .. ${maxBound} > ${1<<this.depth})`;
     }
 
-    const halfSize = 1 << this.depth;
-
-    if (maxBound.x - halfSize > this.point.x ||
-        minBound.x + halfSize < this.point.x ||
-        maxBound.y - halfSize > this.point.y ||
-        minBound.y + halfSize < this.point.y ||
-        maxBound.z - halfSize > this.point.z ||
-        minBound.z + halfSize < this.point.z)
-      throw 'bounds too large for node';
-
-    // if the bounding box overlaps the midpoint, break it into chunks
-    if (maxBound.x - minBound.x > halfSize || minBound.x < this.point.x && this.point.x < maxBound.x) {
-      this.insert(value, new Point(this.point.x, minBound.y, minBound.z), maxBound);
-      this.insert(value, minBound, new Point(this.point.x, maxBound.y, maxBound.z));
-      return;
-    }
-    if (maxBound.y - minBound.y > halfSize || minBound.y < this.point.y && this.point.y < maxBound.y) {
-      this.insert(value, new Point(minBound.x, this.point.y, minBound.z), maxBound);
-      this.insert(value, minBound, new Point(maxBound.x, this.point.y, maxBound.z));
-      return;
-    }
-    if (maxBound.z - minBound.z > halfSize || minBound.z < this.point.z && this.point.z < maxBound.z) {
-      this.insert(value, new Point(minBound.x, minBound.y, this.point.z), maxBound);
-      this.insert(value, minBound, new Point(maxBound.x, maxBound.y, this.point.z));
-      return;
-    }
+    if (this.depth === 0) return;
 
     // populate nodes if it's empty
     if (this.nodes.length === 0) {
       // decrease depth
       const childDepth = this.depth - 1;
       // the shift is half of the child's size
-      const childShift = Math.pow(2, childDepth - 1);
+      const childShift = this.half/2;
       // create new nodes in each 8 child octants of this node
       this.nodes = [
         new Node(this.point.shifted(-childShift, -childShift, -childShift), childDepth, this.value),
@@ -151,10 +152,10 @@ class Node {
       ];
     }
 
-
-    // find the octant this node belongs to and insert it
-    const octant = this.point.getOctant(minBound);
-    this.nodes[octant].insert(value, minBound, maxBound);
+    for (const n of this.nodes) {
+      if (!n.isOutside(minBound, maxBound))
+        n.insert(value, minBound, maxBound);
+    }
   }
 
   // search an area
@@ -170,18 +171,11 @@ class Node {
     // search children
     const halfSize = Math.pow(2, this.depth - 2);
     for (const n of this.nodes) {
-      // if the bounds are outside of this node, don't search
-      if (n.point.x + halfSize <= minBound.x ||
-          n.point.x - halfSize >= maxBound.x ||
-          n.point.y + halfSize <= minBound.y ||
-          n.point.y - halfSize >= maxBound.y ||
-          n.point.z + halfSize <= minBound.z ||
-          n.point.z - halfSize >= maxBound.z) {
-        continue;
+      // if the bounds are not outside of this node, search
+      if (!n.isOutside(minBound, maxBound)) {
+        n.search(minBound, maxBound, set);
       }
 
-      // search the octant
-      n.search(minBound, maxBound, set);
     }
   }
 
@@ -220,7 +214,15 @@ module.exports = class ChunkTree {
       throw 'max chunk too small';
 
     if (!minChunk.eq(maxChunk)) {
+      /*// insert in all chunks that overlap
       for (let x = minChunk.x; x <= maxChunk.x; ++x) {
+        for (let y = minChunk.y; y <= maxChunk.y; ++y) {
+          for (let z = minChunk.z; z <= maxChunk.z; ++z) {
+            fn(minBound, maxBound);
+          }
+        }
+      }*/
+       for (let x = minChunk.x; x <= maxChunk.x; ++x) {
         // determine the min and max bounds for this chunk
         // these should always be within the same chunk
         // and should cap out at the max bound's position
