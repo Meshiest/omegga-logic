@@ -1,25 +1,22 @@
-const { OutputGate } = require('./interface.js');
-module.exports = class PixelOutput extends OutputGate {
-  static getName() { return '1bitpixel'; }
-  static getMarker() { return 'PB_DefaultTile'; }
-  static extendMeta(meta, { markerBricks }) {
+import { Vector } from 'omegga';
+import Simulator from '..';
+import { LogicBrick } from '../util';
+import { GateMeta, OutputGate } from './interface';
+export default class PixelOutput extends OutputGate {
+  static getName = () => '1bitpixel';
+  static extendMeta(
+    meta: GateMeta,
+    { markerBricks }: { markerBricks: LogicBrick[] }
+  ) {
     const plate = markerBricks[0];
     meta.output = {
       position: [
         plate.position[0],
         plate.position[1],
-        plate.position[2] + plate.normal_size[2] + 3
+        plate.position[2] + plate.normal_size[2] + 3,
       ],
-      size: [
-        plate.normal_size[0],
-        plate.normal_size[1],
-        1,
-      ],
-      normal_size: [
-        plate.normal_size[0],
-        plate.normal_size[1],
-        1,
-      ],
+      size: [plate.normal_size[0], plate.normal_size[1], 1],
+      normal_size: [plate.normal_size[0], plate.normal_size[1], 1],
       color: [255, 255, 255],
       collision: {
         tool: false,
@@ -28,12 +25,19 @@ module.exports = class PixelOutput extends OutputGate {
         weapon: false,
       },
       owner_index: 1,
-      material_index: 7,
       material_index: 1,
     };
   }
-  getOutput(sim) {
-    const orientation = {direction: sim.frame % 2 ? 0 : 0, rotation: sim.frame % 2 ? 2 : 0};
+
+  tickTerminal: () => true;
+
+  getOutput(sim: Simulator) {
+    const orientation = {
+      direction: sim.frame % 2 ? 0 : 0,
+      rotation: sim.frame % 2 ? 2 : 0,
+      size: [0, 0, 0] as Vector,
+      position: [0, 0, 0] as Vector,
+    };
     const axis = [
       sim.util.brick.getScaleAxis(orientation, 0),
       sim.util.brick.getScaleAxis(orientation, 1),
@@ -51,4 +55,4 @@ module.exports = class PixelOutput extends OutputGate {
 
     return [this.meta.output];
   }
-};
+}

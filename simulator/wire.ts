@@ -1,25 +1,34 @@
-const { isAsset, isMaterial, isBlack } = require('./util.js');
+import Simulator from 'simulator';
+import { isAsset, isBlack, isMaterial, LogicBrick, LogicBRS } from './util';
 
-module.exports = class Wire {
+export default class Wire {
   // build wire groupings
-  static buildGroups(sim) {
-    const groups = [];
+  static buildGroups(sim: Simulator) {
+    const groups: {
+      wires: number[];
+      currPower: boolean;
+      nextPower: boolean;
+    }[] = [];
 
     // find neighboring wires
     for (let i = 0; i < sim.wires.length; ++i) {
       const a = sim.wires[i];
+      if (typeof a.color !== 'number') continue;
 
       // find adjacent bricks
       const neighboringBricks = sim.tree.search(
         a.bounds.min.shifted(-1, -1, -1),
-        a.bounds.max.shifted(1, 1, 1),
+        a.bounds.max.shifted(1, 1, 1)
       );
       neighboringBricks.delete(i);
 
       // iterate through neighboring bricks, add all wires to the neighbor list
       for (const j of neighboringBricks) {
         const b = sim.save.bricks[j];
-        if (typeof b.wire !== 'undefined' && (a.color === b.color || isBlack(sim.save.colors[a.color]))) {
+        if (
+          typeof b.wire !== 'undefined' &&
+          (a.color === b.color || isBlack(sim.save.colors[a.color]))
+        ) {
           a.neighbors.add(b.wire);
           b.neighbors.add(i);
         }
@@ -55,8 +64,8 @@ module.exports = class Wire {
       // create the group
       groups.push({
         wires: group,
-        currPower: 0,
-        nextPower: 0,
+        currPower: false,
+        nextPower: false,
       });
     }
 
@@ -64,18 +73,22 @@ module.exports = class Wire {
   }
 
   // determine if a brick is a wire
-  static isWire(brick, sim) {
-    if (!isAsset(sim.save, brick, 'PB_DefaultMicroBrick') ||
-      !isMaterial(sim.save, brick, 'BMC_Plastic')) return false;
+  static isWire(brick: LogicBrick, data: LogicBRS | Simulator) {
+    if (
+      !isAsset(
+        'save' in data ? data.save : data,
+        brick,
+        'PB_DefaultMicroBrick'
+      ) ||
+      !isMaterial('save' in data ? data.save : data, brick, 'BMC_Plastic')
+    )
+      return false;
 
-    // get the size of the brick accounting for rotation
-    const normal_size = sim.util.brick.getBrickSize(brick, []);
-    brick.normal_size = [
-      normal_size[sim.util.brick.getScaleAxis(brick, 0)],
-      normal_size[sim.util.brick.getScaleAxis(brick, 1)],
-      normal_size[sim.util.brick.getScaleAxis(brick, 2)],
-    ];
-
-    return (brick.normal_size[0] === 1) + (brick.normal_size[1] === 1) + (brick.normal_size[2] === 1) > 1;
+    return (
+      (brick.normal_size[0] === 1 ? 1 : 0) +
+        (brick.normal_size[1] === 1 ? 1 : 0) +
+        (brick.normal_size[2] === 1 ? 1 : 0) >
+      1
+    );
   }
-};
+}
