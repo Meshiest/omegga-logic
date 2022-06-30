@@ -16,17 +16,6 @@ export default class Gate {
     'i'
   );
 
-  static MARKER_OPTIONS: Record<string, {}> = {
-    input: {},
-    secondary: {},
-    output: {},
-    reset: {},
-    clock: {},
-    clr: {},
-    write: {},
-    color: {},
-  };
-
   // map brick assets to gates
   static gateMap = {};
 

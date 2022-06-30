@@ -3,20 +3,34 @@ import Simulator from '..';
 import { LogicBrick } from '../util';
 import { GateMeta, OutputGate } from './interface';
 export default class PixelOutput extends OutputGate {
-  static getName = () => '1bitpixel';
+  static getName = () => 'pixel';
+  static getConnectables = () => ({
+    output: 1,
+  });
+
   static extendMeta(
     meta: GateMeta,
     { markerBricks }: { markerBricks: LogicBrick[] }
   ) {
     const plate = markerBricks[0];
+    const up = meta.up([0, 0, 1]);
+
     meta.output = {
       position: [
-        plate.position[0],
-        plate.position[1],
-        plate.position[2] + plate.normal_size[2] + 3,
+        plate.position[0] + up[0] * (plate.normal_size[0] + 3),
+        plate.position[1] + up[1] * (plate.normal_size[1] + 3),
+        plate.position[2] + up[2] * (plate.normal_size[2] + 3),
       ],
-      size: [plate.normal_size[0], plate.normal_size[1], 1],
-      normal_size: [plate.normal_size[0], plate.normal_size[1], 1],
+      size: [
+        up[0] === 0 ? plate.normal_size[0] : 1,
+        up[1] === 0 ? plate.normal_size[1] : 1,
+        up[2] === 0 ? plate.normal_size[2] : 1,
+      ],
+      normal_size: [
+        up[0] === 0 ? plate.normal_size[0] : 1,
+        up[1] === 0 ? plate.normal_size[1] : 1,
+        up[2] === 0 ? plate.normal_size[2] : 1,
+      ],
       color: [255, 255, 255],
       collision: {
         tool: false,

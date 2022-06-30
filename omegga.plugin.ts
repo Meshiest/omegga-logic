@@ -1,4 +1,5 @@
 import OmeggaPlugin, { OL, PS, PC, Brick } from 'omegga';
+import { InputGate } from './simulator/gates/interface';
 
 const { getScaleAxis } = OMEGGA_UTIL.brick;
 import './octtree';
@@ -118,7 +119,7 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
 
       for (let i = 0; i < state.outputs.length; ++i) {
         const gate = state.outputs[i];
-        if (gate.on) {
+        if (gate.on && !gate.ignore) {
           out.bricks.push(...gate.getOutput(state));
         }
       }
@@ -201,6 +202,13 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
       `"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.gates.length} gates</></></>"`
     );
     Omegga.broadcast(
+      `"<code><color=\\"ffffff\\"><size=\\"15\\">- detected ${state.circuits} circuits (${state.gateOrder.length} gates)</></></>"`
+    );
+    if (state.circuits === 0)
+      Omegga.broadcast(
+        `"<code><color=\\"ffbbbb\\"><size=\\"15\\">  (missing inputs, buffers, or is one large cycle)</></></>"`
+      );
+    Omegga.broadcast(
       `"<code><color=\\"ffffff\\"><size=\\"15\\">- took ${duration.toLocaleString()} seconds</></></>"`
     );
 
@@ -280,7 +288,7 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
               g.meta.position[1] - pos[1]
             ) < 10
         );
-        if (gate) {
+        if (gate instanceof InputGate) {
           gate.interact();
           Omegga.whisper(player, `"interacted with ${gate.gate}"`);
         }
@@ -301,7 +309,7 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
               g.meta.position[1] - pos[1]
             ) < 10
         );
-        if (gate) {
+        if (gate instanceof InputGate) {
           gate.interact();
           Omegga.whisper(player, `"interacted with ${gate.gate}"`);
         }
@@ -373,15 +381,15 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
             ],
             components: {
               BCD_Interact: {
-                Message: `index: ${n.value.value}
+                Message: `brick index: ${n.value.value}
 pos: ${n.pos.x}, ${n.pos.y}, ${n.pos.z}
 top right: ${n.pos.x + size}, ${n.pos.y + size}, ${n.pos.z + size}
-gate: ${
+gate: #${this.state.save.bricks[n.value.value].gate ?? 'x'} ${
                   this.state.gates[
                     this.state.save.bricks[n.value.value].gate
-                  ]?.constructor?.getName?.() ?? 'null'
+                  ]?.constructor?.['getName']?.() ?? 'null'
                 }
-wire: ${
+wire: #${this.state.save.bricks[n.value.value].wire ?? 'x'} ${
                   this.state.wires[this.state.save.bricks[n.value.value].wire]
                     ?.group ?? 'null'
                 }

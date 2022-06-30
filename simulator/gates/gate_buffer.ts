@@ -3,13 +3,15 @@ import { SimpleGate } from './interface';
 export default class BufferGate extends SimpleGate {
   static getName = () => 'buffer';
 
-  prevState: boolean;
+  state: boolean;
+  isEntryPoint = true;
   init() {
-    this.prevState = false;
+    this.state = false;
   }
-  evaluate(sim: Simulator) {
-    const state = this.prevState;
-    this.prevState = sim.getGroupPower(this.inputs).some(i => i);
-    return state;
+  evaluate(_sim: Simulator) {
+    return this.state;
+  }
+  settle(sim: Simulator) {
+    this.state = sim.getGroupPower(this.inputs).some(i => i);
   }
 }

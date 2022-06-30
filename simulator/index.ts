@@ -2,7 +2,7 @@ import ChunkTree from '../octtree';
 
 import { UnrealColor, Vector } from 'omegga';
 import Gate from './gate';
-import { LogicGate } from './gates/interface';
+import { LogicGate, OutputGate } from './gates/interface';
 import {
   benchEnd,
   benchStart,
@@ -64,7 +64,11 @@ export default class Simulator {
   colors: UnrealColor[];
   tree: ChunkTree<number>;
   gates: LogicGate[];
-  outputs: LogicGate[];
+  outputs: OutputGate[];
+  circuits: number;
+
+  /** order in which gates are simulated */
+  gateOrder: number[];
 
   entryPoints: Set<number>;
 
@@ -97,6 +101,8 @@ export default class Simulator {
     this.gates = [];
     this.outputs = [];
     this.errors = [];
+    this.entryPoints = new Set();
+    this.circuits = 0;
 
     benchStart('build');
 
@@ -106,6 +112,7 @@ export default class Simulator {
 
     benchStart('selection');
     // classify each brick from the save
+    let unusedBricks = 0;
     for (let i = 0; i < this.save.bricks.length; ++i) {
       const brick = this.save.bricks[i];
       // if a brick is a gate, store the gate
@@ -123,7 +130,7 @@ export default class Simulator {
         gate.brick = brick;
         this.gates.push(gate);
         if (gate.isOutput) {
-          this.outputs.push(gate);
+          this.outputs.push(gate as OutputGate);
         }
       }
 
@@ -133,28 +140,18 @@ export default class Simulator {
         brick.neighbors = new Set();
         brick.wire = this.wires.length;
         this.wires.push(brick);
+      } else {
+        unusedBricks++;
       }
     }
     benchEnd('selection');
 
-    benchStart('garbage');
-    let count = 0;
-    for (const b of this.save.bricks) {
-      if (!b.used) {
-        delete b.bounds;
-        delete b.normal_size;
-        delete b.size;
-        delete b.position;
-        ++count;
-      }
-    }
-    benchEnd('garbage');
-
     benchStart('wire groups');
+    this.groups = Wire.buildGroups(this);
+
     const groupToGate: { in: Set<number>; out: Set<number> }[] = Array(
       this.groups.length
     );
-    this.groups = Wire.buildGroups(this);
     for (let i = 0; i < this.groups.length; ++i)
       groupToGate[i] = { in: new Set(), out: new Set() };
 
@@ -180,12 +177,14 @@ export default class Simulator {
       gateToGroup[i] = groups;
 
       // link other groups
-      for (const group of groups.in) groupToGate[group].out.add(i);
-      for (const group of groups.out) groupToGate[group].in.add(i);
+      for (const group of groups.in) groupToGate[group - 1].out.add(i);
+      for (const group of groups.out) groupToGate[group - 1].in.add(i);
     }
 
     benchEnd('gates');
     benchStart('cycles');
+
+    let cycles = 0;
 
     this.entryPoints = new Set<number>();
     const gateToGate: { in: Set<number>; out: Set<number> }[] = Array(
@@ -196,45 +195,117 @@ export default class Simulator {
     for (let i = 0; i < this.gates.length; ++i) {
       const conns = { in: new Set<number>(), out: new Set<number>() };
       // add all output gates for input groups
-      for (const inGroup of gateToGroup[i].in)
-        for (const outGate of groupToGate[inGroup].out) conns.in.add(outGate);
+      for (const inGroup of gateToGroup[i].in) {
+        for (const inGate of groupToGate[inGroup - 1].in) {
+          conns.in.add(inGate);
+        }
+      }
 
       // add all input gates for output groups
-      for (const outGroup of gateToGroup[i].out)
-        for (const inGate of groupToGate[outGroup].in) conns.out.add(inGate);
+      for (const outGroup of gateToGroup[i].out) {
+        for (const outGate of groupToGate[outGroup - 1].out) {
+          conns.out.add(outGate);
+        }
+      }
 
       // no input gates -> this is an entrypoint
-      if (conns.in.size === 0) this.entryPoints.add(i);
+      if (conns.in.size === 0 || this.gates[i].isEntryPoint)
+        this.entryPoints.add(i);
 
       gateToGate[i] = conns;
     }
 
-    type GateOrder = { index: number; next: GateOrder[] };
-    const gateOrder: GateOrder[] = [];
+    const gateOrder: number[] = [];
 
-    const visitedGates = new Set<number>(this.entryPoints);
-    const finishedGates = new Set<number>();
-    let cycleDetected = false;
-
-    // TODO: finish cycle detection
-    /* const queue = [...this.entryPoints];
-    while (queue.length > 0) {
-      const i = queue.shift();
-      if (finishedGates.has(i)) continue;
-
-      if ([...gateToGate[i].in].every(g => finishedGates.has(g)))
-
-      for (const next of gateToGate[i].out) {
-
+    const sim = this;
+    function* getGateOrder(i: number, mode = 3) {
+      // iterate all (non entrypoint) nodes before this one
+      if (!sim.entryPoints.has(i) && mode & 1) {
+        for (const prev of gateToGate[i].in) {
+          if (!sim.entryPoints.has(prev)) {
+            yield* getGateOrder(prev, 1);
+          }
+        }
       }
-    } */
+
+      yield i;
+
+      // iterate all (non entrypoint) nodes after this one
+      if (mode & 2) {
+        for (const next of gateToGate[i].out) {
+          if (!sim.entryPoints.has(next)) {
+            yield* getGateOrder(next, 2);
+          }
+        }
+      }
+    }
+
+    const visited = new Set<number>();
+    /* console.debug(
+      '[debug] entries',
+      ...[...this.entryPoints].map(
+        i => `${i}:${this.gates[i].constructor['getName']()}`
+      )
+    ); */
+
+    for (const i of this.entryPoints) {
+      if (visited.has(i)) continue;
+      visited.add(i);
+
+      // ignore standalone gates
+      if (gateToGroup[i].in.size === 0 && gateToGroup[i].out.size === 0) {
+        this.gates[i].ignore = true;
+        continue;
+      }
+
+      const seen = new Set<number>();
+
+      const order = getGateOrder(i);
+      let path = [];
+      let cycle = false;
+      for (const gate of order) {
+        visited.add(gate);
+        path.push(gate);
+
+        if (seen.has(gate)) {
+          for (const g of seen) {
+            cycles++;
+            cycle = true;
+            this.gates[g].ignore = true;
+            this.errors.push({
+              position: this.gates[g].brick.position,
+              error: 'cycle detected. add a buffer',
+            });
+          }
+          break;
+        }
+
+        seen.add(gate);
+      }
+
+      if (!cycle) {
+        this.circuits++;
+        gateOrder.push(...path);
+        /* console.debug(
+          '[debug] circuit',
+          i,
+          'in',
+          [...gateToGroup[i].in],
+          'out',
+          [...gateToGroup[i].out],
+          'path',
+          ...path.map(i => `${i}:${this.gates[i].constructor['getName']()}`)
+        ); */
+      }
+    }
+
+    this.gateOrder = gateOrder.filter(g => !this.gates[g].ignore);
 
     benchEnd('cycles');
     benchEnd('build');
-    console.info(count, 'unused bricks');
+    console.info(unusedBricks, 'unused bricks');
+    console.info(cycles, 'cycles');
     console.log(' -- build complete');
-
-    if (cycleDetected) return false;
     return true;
   }
 
@@ -243,8 +314,10 @@ export default class Simulator {
     if (!set || !value) return;
     // set the groups next power
     for (const o of set) {
-      const group = this.groups[o - 1];
-      group.nextPower = group.nextPower || value;
+      // legacy where each gate took 1 tick to propagate
+      // const group = this.groups[o - 1];
+      // group.nextPower = group.nextPower || value;
+      this.groups[o - 1].currPower ||= value;
     }
   }
 
@@ -254,19 +327,28 @@ export default class Simulator {
   }
 
   next() {
-    for (const gate of this.gates) {
+    // update power states for the group
+    for (const group of this.groups) {
+      group.currPower = false;
+      // group.nextPower = false;
+    }
+
+    for (const i of this.gateOrder) {
+      const gate = this.gates[i];
+      if (gate.ignore) continue;
+
       // calculate the output
       const output = gate.evaluate(this);
 
-      if (typeof output === 'boolean' && gate.outputs) {
+      if (typeof output === 'boolean' && gate.outputs)
         this.setGroupPower(gate.outputs, output !== gate.isInverted());
-      }
     }
 
-    // update power states for the group
-    for (const group of this.groups) {
-      group.currPower = group.nextPower;
+    for (const gate of this.gates) gate.settle(this);
+
+    /* for (const group of this.groups) {
+      group.currPower = false;
       group.nextPower = false;
-    }
+    } */
   }
 }

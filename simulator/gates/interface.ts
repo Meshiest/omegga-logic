@@ -66,12 +66,24 @@ export class LogicGate {
 
   outputs: Set<number>;
 
+  // data output
   isOutput = false;
+
+  // user input
   isInput = false;
+
+  // should be an entrypoint for ticks
+  isEntryPoint = false;
+
+  // gate was poorly compiled
+  ignore = false;
 
   evaluate(sim: Simulator): boolean | void {
     throw 'unimplemented evaluate';
   }
+
+  // called when the tick finishes
+  settle(sim: Simulator): void {}
 
   constructor(brick: LogicBrick, meta: GateMeta) {
     this.brick = brick;
@@ -157,6 +169,8 @@ export class OutputGate extends LogicGate {
 }
 // gates specifically for player input
 export class InputGate extends LogicGate {
+  isEntryPoint = true;
+
   constructor(brick: LogicBrick, meta: GateMeta) {
     super(brick, meta);
     this.isInput = true;
@@ -212,7 +226,7 @@ export class SpecialGate extends LogicGate {
 
   getNext(): Set<number> {
     return new Set(
-      this.outputConnectables
+      Object.keys(this.connections)
         .flatMap(k =>
           this.outputConnectables.includes(k) ? this.connections[k] : []
         )
@@ -222,7 +236,7 @@ export class SpecialGate extends LogicGate {
 
   getPrev(): Set<number> {
     return new Set(
-      this.outputConnectables
+      Object.keys(this.connections)
         .flatMap(k =>
           this.outputConnectables.includes(k) ? [] : this.connections[k]
         )

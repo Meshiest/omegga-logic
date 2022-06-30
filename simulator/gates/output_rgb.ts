@@ -5,23 +5,39 @@ import { GateMeta, SpecialGate } from './interface';
 import PixelOutput from './output_pixel';
 export default class RGBOutput extends SpecialGate {
   static getName = () => 'rgbpixel';
+
   static validateConnectables(markers: GateMeta['connectables']) {
-    if (markers.color.length % 3 !== 0)
-      return `#markers must be divisible by 3`;
+    if (markers.color.length % 3 !== 0) return `#color must be divisible by 3`;
     return;
   }
+
+  static getConnectables = () => ({
+    color: (n: number) => n >= 0 && n < 24, // colors
+    write: (n: number) => n < 2, // on
+  });
+
   static extendMeta(
     meta: GateMeta,
     { brick, sim }: { brick: LogicBrick; sim: Simulator }
   ) {
+    const up = meta.up([0, 0, 1]);
+
     meta.output = {
       position: [
-        brick.position[0],
-        brick.position[1],
-        brick.position[2] + brick.normal_size[2] + 7,
+        brick.position[0] + up[0] * (brick.normal_size[0] + 7),
+        brick.position[1] + up[1] * (brick.normal_size[1] + 7),
+        brick.position[2] + up[2] * (brick.normal_size[2] + 7),
       ],
-      size: [brick.normal_size[0] + 5, brick.normal_size[1] + 5, 1],
-      normal_size: [brick.normal_size[0] + 5, brick.normal_size[1] + 5, 1],
+      size: [
+        up[0] === 0 ? brick.normal_size[0] + 5 : 1,
+        up[1] === 0 ? brick.normal_size[1] + 5 : 1,
+        up[2] === 0 ? brick.normal_size[2] + 5 : 1,
+      ],
+      normal_size: [
+        up[0] === 0 ? brick.normal_size[0] + 5 : 1,
+        up[1] === 0 ? brick.normal_size[1] + 5 : 1,
+        up[2] === 0 ? brick.normal_size[2] + 5 : 1,
+      ],
       color: [255, 255, 255],
       collision: {
         tool: false,
@@ -38,10 +54,6 @@ export default class RGBOutput extends SpecialGate {
       3
     ) as Vector;
   }
-  static getConnectables = () => ({
-    color: n => n >= 0 && n < 24, // colors
-    write: n => n < 2, // on
-  });
 
   on: boolean;
   color: Vector;
@@ -80,8 +92,9 @@ export default class RGBOutput extends SpecialGate {
       const color = [0, 0, 0];
       const bits = colors.length / 3;
       for (let i = 0; i < colors.length; ++i) {
-        if (sim.getGroupPower(colors[i]).some(g => g) !== colors[i].inverted)
+        if (sim.getGroupPower(colors[i]).some(g => g) !== colors[i].inverted) {
           color[Math.floor(i / bits)] |= 1 << i % bits;
+        }
       }
 
       // convert to appropriate range

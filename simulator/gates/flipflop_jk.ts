@@ -8,7 +8,7 @@ export default class JKFlipFlop extends SpecialGate {
     reset: 1,
     clock: 1,
     output: (n: number) => n > 0,
-    clr: (n: number) => n < 2,
+    clear: (n: number) => n < 2,
   });
 
   outputConnectables = ['output'];
@@ -21,14 +21,14 @@ export default class JKFlipFlop extends SpecialGate {
     this.state = false;
     this.lastClock = this.connections.clock[0].inverted;
     this.lastClear =
-      this.connections.clr.length > 0
-        ? this.connections.clr[0].inverted
+      this.connections.clear.length > 0
+        ? this.connections.clear[0].inverted
         : false;
   }
   evaluate(sim: Simulator) {
     const {
       clock: [clock],
-      clr: [clr],
+      clear: [clear],
       input: [input],
       reset: [reset],
       output: outputs,
@@ -37,16 +37,16 @@ export default class JKFlipFlop extends SpecialGate {
     const curClock = sim.getGroupPower(clock).some(s => s) !== clock.inverted;
 
     // clear on rising edge
-    if (this.connections.clr.length > 0) {
-      const curClr = sim.getGroupPower(clr).some(s => s) !== clr.inverted;
-      if (curClr && !this.lastClear) {
+    if (this.connections.clear.length > 0) {
+      const curClear = sim.getGroupPower(clear).some(s => s) !== clear.inverted;
+      if (curClear && !this.lastClear) {
         this.state = false;
-        this.lastClear = curClr;
+        this.lastClear = curClear;
         for (const o of outputs)
           sim.setGroupPower(o, this.state !== o.inverted);
         return;
       }
-      this.lastClear = curClr;
+      this.lastClear = curClear;
     }
 
     // set on clock

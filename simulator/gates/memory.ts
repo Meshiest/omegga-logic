@@ -6,7 +6,7 @@ export default class Memory extends SpecialGate {
     input: (n: number) => n > 0 && n <= 64,
     write: (n: number) => n < 2,
     clock: (n: number) => n < 2,
-    clr: (n: number) => n < 2,
+    clear: (n: number) => n < 2,
     address: (n: number) => n <= 16, // addresses up to 16 bit in size, can have 0 for 1 bit memory
     output: (n: number) => n > 0 && n <= 64,
   });
@@ -54,8 +54,8 @@ export default class Memory extends SpecialGate {
         ? this.connections.clock[0].inverted
         : false;
     this.lastClear =
-      this.connections.clr.length > 0
-        ? this.connections.clr[0].inverted
+      this.connections.clear.length > 0
+        ? this.connections.clear[0].inverted
         : false;
   }
   // get a decimal value from binary input
@@ -91,22 +91,22 @@ export default class Memory extends SpecialGate {
     const {
       write: [write],
       clock: [clock],
-      clr: [clr],
+      clear: [clear],
       output: outputs,
     } = this.connections;
     const addr = Number(this.getDecFromBin(sim, 'address'));
 
     // clear on rising edge
-    if (this.connections.clr.length > 0) {
-      const curClr = sim.getGroupPower(clr).some(s => s) !== clr.inverted;
-      if (curClr && !this.lastClear) {
+    if (this.connections.clear.length > 0) {
+      const curClear = sim.getGroupPower(clear).some(s => s) !== clear.inverted;
+      if (curClear && !this.lastClear) {
         for (let i = 0; i < this.data.length; ++i)
           this.data[i] = this.big ? 0n : 0;
-        this.lastClear = curClr;
+        this.lastClear = curClear;
         for (const o of outputs) sim.setGroupPower(o, o.inverted);
         return;
       }
-      this.lastClear = curClr;
+      this.lastClear = curClear;
     }
 
     const writeOn =
