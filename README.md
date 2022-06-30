@@ -23,11 +23,11 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 - Gates can be made of any color, material, or brick type.
   - Add `logic:gate:GATE` to the console tag on a brick's interact component. (eg. `logic:gate:AND`)
 - Gate connectables
-  - Add `logic:io:NAME` to the console tag on a brick's interact component (eg. `logic:gate:input`)
+  - Add `logic:io:NAME` to the console tag on a brick's interact component (eg. `logic:io:input`)
   - Connectables must be on top of the gate (Z Positive). This is hard to tell with microbricks.
   - Wires connect to connectables adjacently
-  - Connectables are ordered by content after the `NAME[:<rest>]`. `logic:gate:input:00`, `logic:gate:input:01`. This is a **string compare** so `10` will come before `1` but not `01`.
-  - Adding an `!` to the beginning of the interact **inverts** the input (on non-simple gates) or all output on the gate.
+  - Connectables are ordered by content after the `NAME[:<rest>]`. `logic:io:input:00`, `logic:io:input:01`. This is a **string compare** so `10` will come before `1` but not `01`.
+  - Adding an `!` to the beginning of the interact tag (`!logic:gate:and`, `!logic:io:input`) **inverts** the input (on non-simple gates) or all output on the gate.
 - All i/o to gates is adjacent (wires cannot communicate with gates diagonally)
 - Wires cannot connect to the top and bottom of gates
 
