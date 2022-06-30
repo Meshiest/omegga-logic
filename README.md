@@ -8,7 +8,7 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 
 ## Usage
 
-1. Load the `logic gates.brs` file for logic gate prefabs.
+1. Load the `logic bricks v2.brs` file for logic gate prefabs.
 2. Read the simulator rules below.
 3. Build some gates and wires.
 4. Run the simulation
