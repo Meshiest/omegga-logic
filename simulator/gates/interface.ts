@@ -247,7 +247,7 @@ export class SpecialGate extends LogicGate {
   findConnections(sim: Simulator) {
     this.connections = {};
     const order = (a: Connectable, b: Connectable) =>
-      a.rest.localeCompare(b.rest);
+      (a.rest ?? '').localeCompare(b.rest ?? '');
 
     for (const connType in this.meta.connectables) {
       const nodes = this.meta.connectables[connType];

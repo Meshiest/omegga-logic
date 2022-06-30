@@ -49,6 +49,9 @@ Gate.registerGate(AdderGate);
 import MuxGate from './gates/multiplexer';
 Gate.registerGate(MuxGate);
 
+import DecGate from './gates/decoder';
+Gate.registerGate(DecGate);
+
 import MemoryGate from './gates/memory';
 Gate.registerGate(MemoryGate);
 
@@ -218,26 +221,34 @@ export default class Simulator {
     const gateOrder: number[] = [];
 
     const sim = this;
-    function* getGateOrder(i: number, mode = 3) {
+    function* getGateOrder(
+      i: number,
+      mode?: 'up' | 'down' | 'all',
+      seen?: Set<number>
+    ) {
+      seen?.add(i);
+
       // iterate all (non entrypoint) nodes before this one
-      if (!sim.entryPoints.has(i) && mode & 1) {
+      if (!mode || mode === 'up' || mode === 'all')
         for (const prev of gateToGate[i].in) {
-          if (!sim.entryPoints.has(prev)) {
-            yield* getGateOrder(prev, 1);
+          if (seen?.has(prev)) continue;
+
+          if (mode === 'all' || !sim.entryPoints.has(prev)) {
+            yield* getGateOrder(prev, mode ?? 'up', seen);
           }
         }
-      }
 
       yield i;
 
       // iterate all (non entrypoint) nodes after this one
-      if (mode & 2) {
+      if (!mode || mode === 'down' || mode === 'all')
         for (const next of gateToGate[i].out) {
-          if (!sim.entryPoints.has(next)) {
-            yield* getGateOrder(next, 2);
+          if (seen?.has(next)) continue;
+
+          if (mode === 'all' || !sim.entryPoints.has(next)) {
+            yield* getGateOrder(next, mode ?? 'down', seen);
           }
         }
-      }
     }
 
     const visited = new Set<number>();
@@ -260,12 +271,10 @@ export default class Simulator {
 
       const seen = new Set<number>();
 
-      const order = getGateOrder(i);
-      let path = [];
+      const breadth = getGateOrder(i);
       let cycle = false;
-      for (const gate of order) {
+      for (const gate of breadth) {
         visited.add(gate);
-        path.push(gate);
 
         if (seen.has(gate)) {
           for (const g of seen) {
@@ -283,20 +292,24 @@ export default class Simulator {
         seen.add(gate);
       }
 
-      if (!cycle) {
-        this.circuits++;
-        gateOrder.push(...path);
-        /* console.debug(
-          '[debug] circuit',
-          i,
-          'in',
-          [...gateToGroup[i].in],
-          'out',
-          [...gateToGroup[i].out],
-          'path',
-          ...path.map(i => `${i}:${this.gates[i].constructor['getName']()}`)
-        ); */
-      }
+      if (cycle) continue;
+
+      const path = [...getGateOrder(i, 'all', new Set<number>())];
+      path.forEach(i => visited.add(i));
+
+      this.circuits++;
+      gateOrder.push(...path);
+      /* console.debug(
+        '[debug] circuit',
+        i,
+        'in {',
+        ...[...gateToGroup[i].in],
+        '} out {',
+        ...[...gateToGroup[i].out],
+        '} path {',
+        ...path.map(i => `${i}:${this.gates[i].constructor['getName']()}`),
+        '}'
+      ); */
     }
 
     this.gateOrder = gateOrder.filter(g => !this.gates[g].ignore);

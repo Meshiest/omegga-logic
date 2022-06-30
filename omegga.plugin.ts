@@ -3,8 +3,9 @@ import { InputGate } from './simulator/gates/interface';
 
 const { getScaleAxis } = OMEGGA_UTIL.brick;
 import './octtree';
-import { OctNode } from './octtree';
+import { OctNode, Point } from './octtree';
 import Simulator from './simulator';
+import Gate from './simulator/gate';
 
 const owners = [
   {
@@ -249,6 +250,29 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
       );
     });
 
+    Omegga.on('interact', async ({ player, position, message }) => {
+      // sim must be running
+      if (!this.state || !player) return;
+      const match = message.match(Gate.REGEX);
+
+      // interact must be on a gate
+      if (!match || match.groups.type !== 'gate') return;
+
+      // get the id of the brick from the octree
+      const id = this.state.tree.get(new Point(...position));
+      if (id === -1) return;
+
+      // find the brick
+      const brick = this.state.save.bricks[id];
+      if (typeof brick.gate !== 'number') return;
+      const gate = this.state.gates[brick.gate];
+
+      if (gate instanceof InputGate) {
+        gate.interact();
+        Omegga.middlePrint(player.id, `"interacted with ${gate.gate}"`);
+      }
+    });
+
     Omegga.on('cmd:next', async (n, amount, speed, skip) => {
       try {
         if (!this.isAuthorized(n)) return;
@@ -273,48 +297,6 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
         this.runSim(times, wait, skipAmt);
       } catch (err) {
         console.error(err);
-      }
-    });
-
-    Omegga.on('chatcmd:press', async n => {
-      try {
-        const player = Omegga.getPlayer(n);
-        const pos = await player.getPosition();
-        const gate = this.state.gates.find(
-          g =>
-            g.isInput &&
-            Math.hypot(
-              g.meta.position[0] - pos[0],
-              g.meta.position[1] - pos[1]
-            ) < 10
-        );
-        if (gate instanceof InputGate) {
-          gate.interact();
-          Omegga.whisper(player, `"interacted with ${gate.gate}"`);
-        }
-      } catch (err) {
-        // no player
-      }
-    });
-
-    Omegga.on('cmd:press', async n => {
-      try {
-        const player = Omegga.getPlayer(n);
-        const pos = await player.getPosition();
-        const gate = this.state.gates.find(
-          g =>
-            g.isInput &&
-            Math.hypot(
-              g.meta.position[0] - pos[0],
-              g.meta.position[1] - pos[1]
-            ) < 10
-        );
-        if (gate instanceof InputGate) {
-          gate.interact();
-          Omegga.whisper(player, `"interacted with ${gate.gate}"`);
-        }
-      } catch (err) {
-        // no player
       }
     });
 
@@ -426,14 +408,7 @@ bounds: ${JSON.stringify(this.state.save.bricks[n.value.value].bounds).replace(
     });
 
     return {
-      registeredCommands: [
-        'clg',
-        'go',
-        'next',
-        'stop',
-        'press',
-        'logicgriddebug',
-      ],
+      registeredCommands: ['clg', 'go', 'next', 'stop', 'logicgriddebug'],
     };
   }
 

@@ -1,10 +1,11 @@
 import Simulator from '..';
-import { SpecialGate } from './interface';
+import { GateMeta, SpecialGate } from './interface';
 export default class DFlipFlop extends SpecialGate {
   static getName = () => 'd_flipflop';
   static getConnectables = () => ({
     input: 1,
-    clock: 1,
+    clock: (n: number) => n < 2,
+    write: (n: number) => n < 2,
     output: (n: number) => n > 0,
   });
 
@@ -12,6 +13,11 @@ export default class DFlipFlop extends SpecialGate {
 
   state: boolean;
   lastClock: boolean;
+
+  static validateConnectables(markers: GateMeta['connectables']) {
+    if (markers.write.length + markers.clock.length !== 1)
+      return 'missing clock/write';
+  }
 
   init() {
     this.state = false;
@@ -21,17 +27,25 @@ export default class DFlipFlop extends SpecialGate {
   evaluate(sim: Simulator) {
     const {
       clock: [clock],
+      write: [write],
       input: [input],
       output: outputs,
     } = this.connections;
 
-    const curClock = sim.getGroupPower(clock).some(s => s) !== clock.inverted;
+    if (clock) {
+      const curClock = sim.getGroupPower(clock).some(s => s) !== clock.inverted;
 
-    // clock on rising edge only
-    if (curClock && !this.lastClock) {
-      this.state = sim.getGroupPower(input).some(s => s) !== input.inverted;
+      // clock on rising edge only
+      if (curClock && !this.lastClock) {
+        this.state = sim.getGroupPower(input).some(s => s) !== input.inverted;
+      }
+      this.lastClock = curClock;
+    } else {
+      const isWrite = sim.getGroupPower(write).some(s => s) !== write.inverted;
+      if (isWrite) {
+        this.state = sim.getGroupPower(input).some(s => s) !== input.inverted;
+      }
     }
-    this.lastClock = curClock;
 
     for (const o of outputs) sim.setGroupPower(o, this.state !== o.inverted);
   }
