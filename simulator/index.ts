@@ -73,8 +73,6 @@ export default class Simulator {
   /** order in which gates are simulated */
   gateOrder: number[];
 
-  entryPoints: Set<number>;
-
   wires: LogicBrick[];
   groups: ReturnType<typeof Wire.buildGroups>;
   errors: { position: Vector; error: string }[];
@@ -104,7 +102,6 @@ export default class Simulator {
     this.gates = [];
     this.outputs = [];
     this.errors = [];
-    this.entryPoints = new Set();
     this.circuits = 0;
 
     benchStart('build');
@@ -189,7 +186,7 @@ export default class Simulator {
 
     let cycles = 0;
 
-    this.entryPoints = new Set<number>();
+    const entryPoints = new Set<number>();
     const exitPoints = new Set<number>();
     const gateToGate: { in: Set<number>; out: Set<number> }[] = Array(
       this.gates.length
@@ -213,12 +210,8 @@ export default class Simulator {
       }
 
       // no input gates -> this is an entrypoint
-      if (conns.in.size === 0 || this.gates[i].isEntryPoint) {
-        this.entryPoints.add(i);
-      }
-      if (conns.out.size === 0 || this.gates[i].isExitPoint) {
-        exitPoints.add(i);
-      }
+      if (conns.in.size === 0 || this.gates[i].isEntryPoint) entryPoints.add(i);
+      if (conns.out.size === 0 || this.gates[i].isExitPoint) exitPoints.add(i);
 
       gateToGate[i] = conns;
     }
@@ -269,6 +262,27 @@ export default class Simulator {
       return l;
     }
 
+    function detectCycle(
+      i: number,
+      direction: 'in' | 'out',
+      seen: Set<number> = new Set()
+    ): Set<number> | null {
+      // ignore entrypoints unless this is the first visited gate
+      if (entryPoints.has(i) && seen.size > 0) return null;
+
+      // if we've seen this gate before in this search, return the set of visited
+      if (seen.has(i)) return seen;
+      seen.add(i);
+
+      // repeat search for all gates in the provided direction
+      for (const next of gateToGate[i][direction]) {
+        const cycle = detectCycle(next, direction, new Set(seen));
+        if (cycle) return cycle;
+      }
+
+      // no cycles were found
+      return null;
+    }
     const visited = new Set<number>();
     /* console.debug(
       '[debug] entries',
@@ -277,7 +291,7 @@ export default class Simulator {
       )
     ); */
 
-    for (const i of this.entryPoints) {
+    for (const i of entryPoints) {
       if (visited.has(i)) continue;
       visited.add(i);
 
@@ -287,15 +301,17 @@ export default class Simulator {
         continue;
       }
 
+      const cycle = detectCycle(i, 'in') ?? detectCycle(i, 'out');
+
       const gates = [...getCircuit(i)];
       const path = kahnsAlgorithm(
-        gates.filter(g => this.entryPoints.has(g)),
+        gates.filter(g => entryPoints.has(g)),
         gates
       );
 
-      if (!path) {
+      if (!path || cycle) {
         cycles++;
-        for (const g of gates) {
+        for (const g of cycle ?? gates) {
           this.gates[g].ignore = true;
           this.errors.push({
             position: this.gates[g].brick.position,
