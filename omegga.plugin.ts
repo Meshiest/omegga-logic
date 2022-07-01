@@ -286,7 +286,7 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
           const prelude = `
 <size=\\"20\\"><color=\\"afa\\"><b>${name}</></><size=\\"14\\">${
             inverted ? ' (inverted)' : ''
-          }${brick.gate ? ` #${brick.gate}` : ''}</></>
+          }${brick?.gate ? ` #${brick.gate}` : ''}</></>
 <size=\\"16\\"><color=\\"bbb\\">${description}</></>
 ${Object.entries(connectables)
   .map(
