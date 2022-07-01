@@ -2,19 +2,18 @@ import { InputGate } from './interface';
 
 export default class ButtonInput extends InputGate {
   static getName = () => 'button';
-  static getMarker = () => 'B_2x2F_Octo_Converter';
+  static getDescription = () => 'outputs ON for 1 tick when clicked';
 
   pressed: number;
 
   interact() {
-    this.pressed = 3;
+    this.pressed = 1;
   }
 
   evaluate() {
     // buttons are pressed for a number of ticks
-    if (this.pressed > 0) {
-      this.pressed--;
-    }
-    return this.pressed > 0;
+    const active = this.pressed > 0;
+    if (this.pressed > 0) this.pressed--;
+    return active;
   }
 }

@@ -2,11 +2,14 @@ import Simulator from '..';
 import { GateMeta, SpecialGate } from './interface';
 export default class Memory extends SpecialGate {
   static getName = () => 'mem';
+  static getDescription = () =>
+    'stores #input bits of data at one of 2^(#address-1) slots when write or clock is ON';
+
   static getConnectables = () => ({
     input: (n: number) => n > 0 && n <= 64,
-    write: (n: number) => n < 2,
-    clock: (n: number) => n < 2,
-    clear: (n: number) => n < 2,
+    write: (n: number) => n <= 1,
+    clock: (n: number) => n <= 1,
+    clear: (n: number) => n <= 1,
     address: (n: number) => n <= 16, // addresses up to 16 bit in size, can have 0 for 1 bit memory
     output: (n: number) => n > 0 && n <= 64,
   });

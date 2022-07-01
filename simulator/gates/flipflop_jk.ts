@@ -3,12 +3,14 @@ import { SpecialGate } from './interface';
 
 export default class JKFlipFlop extends SpecialGate {
   static getName = () => 'jk_flipflop';
+  static getDescription = () =>
+    'when input is ON during clock, turn output ON. when reset is ON, turn OFF';
   static getConnectables = () => ({
     input: 1,
     reset: 1,
     clock: 1,
     output: (n: number) => n > 0,
-    clear: (n: number) => n < 2,
+    clear: (n: number) => n <= 1,
   });
 
   outputConnectables = ['output'];

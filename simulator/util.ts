@@ -10,11 +10,12 @@ import {
 
 import { Point } from '../octtree';
 import Gate from './gate';
+import { Connectable } from './gates/interface';
 import Wire from './wire';
 
 export interface LogicBrick extends BrickV10 {
   normal_size?: Vector;
-  bounds?: { min: Point; max: Point; inverted?: boolean };
+  bounds?: { min: Point; max: Point };
   tagMatch?: RegExpMatchArray & {
     groups: {
       inverted?: string;
@@ -36,6 +37,9 @@ export interface LogicBrick extends BrickV10 {
 
   neighbors?: Set<number>;
   wire?: number;
+  ownerGate?: number;
+  ioIndex?: number;
+  ioType?: string;
 }
 
 export interface LogicBRS extends BrsV10 {

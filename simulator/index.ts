@@ -143,9 +143,9 @@ export default class Simulator {
         brick.neighbors = new Set();
         brick.wire = this.wires.length;
         this.wires.push(brick);
-      } else {
-        unusedBricks++;
       }
+
+      if (!brick.used) unusedBricks++;
     }
     benchEnd('selection');
 
@@ -190,6 +190,7 @@ export default class Simulator {
     let cycles = 0;
 
     this.entryPoints = new Set<number>();
+    const exitPoints = new Set<number>();
     const gateToGate: { in: Set<number>; out: Set<number> }[] = Array(
       this.gates.length
     );
@@ -212,43 +213,60 @@ export default class Simulator {
       }
 
       // no input gates -> this is an entrypoint
-      if (conns.in.size === 0 || this.gates[i].isEntryPoint)
+      if (conns.in.size === 0 || this.gates[i].isEntryPoint) {
         this.entryPoints.add(i);
+      }
+      if (conns.out.size === 0 || this.gates[i].isExitPoint) {
+        exitPoints.add(i);
+      }
 
       gateToGate[i] = conns;
     }
 
     const gateOrder: number[] = [];
 
-    const sim = this;
-    function* getGateOrder(
-      i: number,
-      mode?: 'up' | 'down' | 'all',
-      seen?: Set<number>
-    ) {
-      seen?.add(i);
+    // get every gate in the circuit
+    function getCircuit(i: number, seen = new Set<number>()): Set<number> {
+      if (seen.has(i)) return seen;
+      seen.add(i);
 
-      // iterate all (non entrypoint) nodes before this one
-      if (!mode || mode === 'up' || mode === 'all')
-        for (const prev of gateToGate[i].in) {
-          if (seen?.has(prev)) continue;
+      for (const prev of gateToGate[i].in) getCircuit(prev, seen);
+      for (const next of gateToGate[i].out) getCircuit(next, seen);
 
-          if (mode === 'all' || !sim.entryPoints.has(prev)) {
-            yield* getGateOrder(prev, mode ?? 'up', seen);
-          }
+      return seen;
+    }
+
+    // https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
+    function kahnsAlgorithm(entry: number[], circuit: number[]) {
+      // set of entrypoints
+      const s = [...entry];
+      const added = new Set<number>();
+      // sorted list
+      const l = [];
+
+      while (s.length > 0) {
+        const n = s.shift();
+        if (!added.has(n)) {
+          added.add(n);
+          l.push(n);
         }
-
-      yield i;
-
-      // iterate all (non entrypoint) nodes after this one
-      if (!mode || mode === 'down' || mode === 'all')
-        for (const next of gateToGate[i].out) {
-          if (seen?.has(next)) continue;
-
-          if (mode === 'all' || !sim.entryPoints.has(next)) {
-            yield* getGateOrder(next, mode ?? 'down', seen);
-          }
+        for (const m of gateToGate[n].out) {
+          gateToGate[n].out.delete(m);
+          gateToGate[m].in.delete(n);
+          if (gateToGate[m].in.size === 0) s.push(m);
         }
+      }
+
+      // graph has a cycle
+      if (
+        circuit.every(
+          n => gateToGate[n].out.size > 0 || gateToGate[n].in.size > 0
+        )
+      )
+        return null;
+
+      // topologically sorted
+      return l;
     }
 
     const visited = new Set<number>();
@@ -269,32 +287,24 @@ export default class Simulator {
         continue;
       }
 
-      const seen = new Set<number>();
+      const gates = [...getCircuit(i)];
+      const path = kahnsAlgorithm(
+        gates.filter(g => this.entryPoints.has(g)),
+        gates
+      );
 
-      const breadth = getGateOrder(i);
-      let cycle = false;
-      for (const gate of breadth) {
-        visited.add(gate);
-
-        if (seen.has(gate)) {
-          for (const g of seen) {
-            cycles++;
-            cycle = true;
-            this.gates[g].ignore = true;
-            this.errors.push({
-              position: this.gates[g].brick.position,
-              error: 'cycle detected. add a buffer',
-            });
-          }
-          break;
+      if (!path) {
+        cycles++;
+        for (const g of gates) {
+          this.gates[g].ignore = true;
+          this.errors.push({
+            position: this.gates[g].brick.position,
+            error: 'cycle detected. add a buffer',
+          });
         }
-
-        seen.add(gate);
+        continue;
       }
 
-      if (cycle) continue;
-
-      const path = [...getGateOrder(i, 'all', new Set<number>())];
       path.forEach(i => visited.add(i));
 
       this.circuits++;

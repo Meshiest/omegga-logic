@@ -252,24 +252,70 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
 
     Omegga.on('interact', async ({ player, position, message }) => {
       // sim must be running
-      if (!this.state || !player) return;
+      if (!player) return;
       const match = message.match(Gate.REGEX);
 
       // interact must be on a gate
-      if (!match || match.groups.type !== 'gate') return;
+      if (!match) return;
+
+      const inverted = Boolean(match.groups.inverted);
+      const index = match.groups.rest === 'index';
 
       // get the id of the brick from the octree
-      const id = this.state.tree.get(new Point(...position));
-      if (id === -1) return;
+      const id = this.state?.tree.get(new Point(...position)) ?? -1;
+      const brick = this.state?.save.bricks[id] ?? null;
+      const gate = brick && this.state.gates[brick?.gate];
 
-      // find the brick
-      const brick = this.state.save.bricks[id];
-      if (typeof brick.gate !== 'number') return;
-      const gate = this.state.gates[brick.gate];
+      if (match.groups.type === Gate.GATE_PREFIX) {
+        const gateType = Gate.gateMap[match.groups.kind];
+        if (!gateType) {
+          Omegga.middlePrint(
+            player.id,
+            `${match.groups.kind} is not a valid gate type`
+          );
+        }
 
-      if (gate instanceof InputGate) {
-        gate.interact();
-        Omegga.middlePrint(player.id, `"interacted with ${gate.gate}"`);
+        if (gate && gate instanceof InputGate) {
+          gate.interact();
+          Omegga.middlePrint(player.id, `"Interacted with ${gate.gate}"`);
+        } else {
+          const name = gateType.getName();
+          const description = gateType.getDescription();
+          const connectables = gateType.getConnectables();
+
+          const prelude = `
+<size=\\"20\\"><color=\\"afa\\"><b>${name}</></><size=\\"14\\">${
+            inverted ? ' (inverted)' : ''
+          }${brick.gate ? ` #${brick.gate}` : ''}</></>
+<size=\\"16\\"><color=\\"bbb\\">${description}</></>
+${Object.entries(connectables)
+  .map(
+    ([k, v]) =>
+      `${k}: ${
+        typeof v === 'number'
+          ? v
+          : OMEGGA_UTIL.chat.sanitize(v.toString().replace('(n)=>', ''))
+      }${
+        gate?.['connections']?.[k] ? ` (${gate['connections'][k].length})` : ''
+      }`
+  )
+  .join('\n')}`
+            .trim()
+            .replace(/\n/g, '<br>');
+
+          Omegga.middlePrint(player.id, `"${prelude}"`);
+        }
+      } else if (match.groups.type === Gate.IO_PREFIX) {
+        Omegga.middlePrint(
+          player.id,
+          `"IO: ${match.groups.kind}${
+            index
+              ? ' (index)'
+              : match.groups.rest
+              ? ` (${match.groups.rest})`
+              : ''
+          }${inverted ? ' (inverted)' : ''}"`
+        );
       }
     });
 
@@ -350,9 +396,10 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
       const bricks = [];
       const brickNode = (n: OctNode<number>) => {
         if ('value' in n.value && n.value.value !== this.state.tree.fill) {
+          const brick = this.state.save.bricks[n.value.value];
           const size = 1 << n.depth;
           bricks.push({
-            ...this.state.save.bricks[n.value.value],
+            ...brick,
             owner_index: 1,
             asset_name_index: 0,
             size: [size, size, size],
@@ -363,27 +410,34 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
             ],
             components: {
               BCD_Interact: {
-                Message: `brick index: ${n.value.value}
-pos: ${n.pos.x}, ${n.pos.y}, ${n.pos.z}
-top right: ${n.pos.x + size}, ${n.pos.y + size}, ${n.pos.z + size}
-gate: #${this.state.save.bricks[n.value.value].gate ?? 'x'} ${
-                  this.state.gates[
-                    this.state.save.bricks[n.value.value].gate
-                  ]?.constructor?.['getName']?.() ?? 'null'
-                }
-wire: #${this.state.save.bricks[n.value.value].wire ?? 'x'} ${
-                  this.state.wires[this.state.save.bricks[n.value.value].wire]
-                    ?.group ?? 'null'
-                }
-tag: ${
-                  this.state.save.bricks[n.value.value].components?.BCD_Interact
-                    ?.ConsoleTag ?? 'null'
-                }
-bounds: ${JSON.stringify(this.state.save.bricks[n.value.value].bounds).replace(
-                  /"/g,
-                  ''
-                )}
-`.replace('\n', '<br>'),
+                Message: `i=${n.value.value}
+[${n.pos.x}, ${n.pos.y}, ${n.pos.z}]
+${[
+  (gate =>
+    typeof gate !== 'undefined' &&
+    `gate: #${gate ?? ''} ${this.state.gates[gate].gate ?? ''}`)(brick.gate),
+  (wire =>
+    typeof wire !== 'undefined' &&
+    `wire: #${wire ?? ''} ${this.state.wires[wire]?.group ?? ''}`)(brick.wire),
+  ((index, type, gate) =>
+    type &&
+    `io: ${type}.${index} [${[
+      ...(this.state.gates[gate]?.['connections']?.[type][index] ?? new Set()),
+    ].join(' ')}]`)(brick.ioIndex, brick.ioType, brick.ownerGate),
+]
+  .filter(Boolean)
+  .join('\n')}
+${
+  this.state.save.bricks[n.value.value].components?.BCD_Interact?.ConsoleTag ??
+  ''
+}
+${
+  '' &&
+  JSON.stringify(this.state.save.bricks[n.value.value].bounds).replace(/"/g, '')
+}
+`
+                  .trim()
+                  .replace(/\n+/g, '<br>'),
                 bPlayInteractSound: false,
                 ConsoleTag: '',
               },
@@ -406,6 +460,25 @@ bounds: ${JSON.stringify(this.state.save.bricks[n.value.value].bounds).replace(
           bricks,
         });
     });
+
+    /*     Omegga.on('cmd:removemessage', async (name: string) => {
+      const player = Omegga.getPlayer(name);
+      if (!player.isHost()) return;
+
+      try {
+        const data = await player.getTemplateBoundsData();
+        if (!data || data.version !== 10) return;
+
+        for (const brick of data.bricks) {
+          if (!('BCD_Interact' in brick.components)) continue;
+          brick.components.BCD_Interact.Message = '';
+        }
+
+        await player.loadSaveData(data);
+      } catch (err) {
+        console.error('error in recomponent', err);
+      }
+    }); */
 
     return {
       registeredCommands: ['clg', 'go', 'next', 'stop', 'logicgriddebug'],

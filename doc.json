@@ -18,8 +18,14 @@
     {
       "name": "/go",
       "description": "Build the simulation",
-      "example": "/go",
-      "args": []
+      "example": "/go cr",
+      "args": [
+        {
+          "name": "flags",
+          "description": "r = run, c = clipboard, w = hide wides. (default none)",
+          "required": false
+        }
+      ]
     },
     {
       "name": "/stop",

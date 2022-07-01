@@ -2,10 +2,13 @@ import Simulator from '..';
 import { GateMeta, SpecialGate } from './interface';
 export default class DFlipFlop extends SpecialGate {
   static getName = () => 'd_flipflop';
+  static getDescription = () =>
+    'outputs stored value. when write or clock is ON, set stored value to input';
+
   static getConnectables = () => ({
     input: 1,
-    clock: (n: number) => n < 2,
-    write: (n: number) => n < 2,
+    clock: (n: number) => n <= 1,
+    write: (n: number) => n <= 1,
     output: (n: number) => n > 0,
   });
 

@@ -1,4 +1,4 @@
-import { Brick, Vector, UnrealColor } from 'omegga';
+import { Brick, Vector } from 'omegga';
 import Simulator from '..';
 import { Point } from '../../octtree';
 import { LogicBrick, searchBoundsSide } from '../util';
@@ -7,7 +7,11 @@ export type Connectable = {
   min: Point;
   max: Point;
   inverted: boolean;
-} & Omit<LogicBrick['tagMatch']['groups'], 'inverted'>;
+  brick: LogicBrick;
+  rest: string;
+  kind: string;
+  type: string;
+};
 
 export type GateMeta = {
   bounds: { min: Point; max: Point };
@@ -36,11 +40,16 @@ export type LogicGateStatic = {
   validateConnectables(
     connectables: GateMeta['connectables']
   ): string | undefined;
+  getDescription: () => string;
 };
 
 export class LogicGate {
   static getName() {
     throw 'unimplemented getName';
+  }
+
+  static getDescription() {
+    return 'undescribed component';
   }
 
   static getConnectables(): Record<string, number | ((n: number) => boolean)> {
@@ -74,6 +83,9 @@ export class LogicGate {
 
   // should be an entrypoint for ticks
   isEntryPoint = false;
+
+  // should be the last thing fired
+  isExitPoint = false;
 
   // gate was poorly compiled
   ignore = false;
@@ -169,8 +181,6 @@ export class OutputGate extends LogicGate {
 }
 // gates specifically for player input
 export class InputGate extends LogicGate {
-  isEntryPoint = true;
-
   constructor(brick: LogicBrick, meta: GateMeta) {
     super(brick, meta);
     this.isInput = true;
@@ -246,15 +256,21 @@ export class SpecialGate extends LogicGate {
 
   findConnections(sim: Simulator) {
     this.connections = {};
-    const order = (a: Connectable, b: Connectable) =>
+    const sortAlphabetical = (a: Connectable, b: Connectable) =>
       (a.rest ?? '').localeCompare(b.rest ?? '');
+
+    const sortDistance = (origin: Point) => (a: Connectable, b: Connectable) =>
+      a.min.dist(origin) - b.min.dist(origin);
 
     for (const connType in this.meta.connectables) {
       const nodes = this.meta.connectables[connType];
       const sets = (this.connections[connType] = Array(nodes.length));
 
-      // sort nodes in the order based on direction
-      nodes.sort(order);
+      const origin = nodes.find(n => n.rest === 'index');
+
+      // sort nodes in the order based distance to "index" if present
+      // otherwise sort alphabetically based on the tag
+      nodes.sort(origin ? sortDistance(origin.min) : sortAlphabetical);
 
       const dir = this.meta.direction;
 
@@ -272,6 +288,10 @@ export class SpecialGate extends LogicGate {
             dir === 4 || dir === 5 ? this.meta.bounds.max.z : nodes[n].max.z
           ),
         };
+
+        nodes[n].brick.ioType = connType;
+        nodes[n].brick.ioIndex = n;
+        nodes[n].brick.ownerGate = this.brick.gate;
 
         sets[n] = new Set<number>();
         sets[n].inverted = nodes[n].inverted;

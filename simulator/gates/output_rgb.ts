@@ -5,6 +5,8 @@ import { GateMeta, SpecialGate } from './interface';
 import PixelOutput from './output_pixel';
 export default class RGBOutput extends SpecialGate {
   static getName = () => 'rgbpixel';
+  static getDescription = () =>
+    'renders a colored pixel when write is ON (if present) based on the inputs being split in to R, G, and B sections.';
 
   static validateConnectables(markers: GateMeta['connectables']) {
     if (markers.color.length % 3 !== 0) return `#color must be divisible by 3`;
@@ -12,8 +14,8 @@ export default class RGBOutput extends SpecialGate {
   }
 
   static getConnectables = () => ({
-    color: (n: number) => n >= 0 && n < 24, // colors
-    write: (n: number) => n < 2, // on
+    color: (n: number) => n >= 0 && n <= 24, // colors
+    write: (n: number) => n <= 1, // on
   });
 
   static extendMeta(

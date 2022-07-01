@@ -1,6 +1,6 @@
 import Simulator from 'simulator';
 import { Point } from '../octtree';
-import { GateMeta, LogicGateStatic } from './gates/interface';
+import { Connectable, GateMeta, LogicGateStatic } from './gates/interface';
 import { LogicBrick } from './util';
 
 export default class Gate {
@@ -17,7 +17,7 @@ export default class Gate {
   );
 
   // map brick assets to gates
-  static gateMap = {};
+  static gateMap: Record<string, LogicGateStatic> = {};
 
   // add the gate to the gate map
   static registerGate(gate: LogicGateStatic) {
@@ -91,7 +91,7 @@ export default class Gate {
     // ignore empty markers
     // if (!aboveBricks.length) return 'missing IO bricks on gate';
 
-    const connectables = {};
+    const connectables: Record<string, Connectable[]> = {};
 
     // find the meaningful markers
     const requirements = NewGate.getConnectables();
@@ -105,6 +105,7 @@ export default class Gate {
         return `${NewGate.getName()}: unsatisifed '${ioType}' IO`;
       }
       connectables[ioType] = items.map(i => ({
+        brick: i,
         ...i.bounds,
         ...i.tagMatch.groups,
         inverted: Boolean(i.tagMatch.groups.inverted),

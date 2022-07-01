@@ -49,12 +49,12 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 | `xor`    | `input`, `output` | output is on when one input wire is on   |
 | `buffer` | `input`, `output` | delays input by 1 tick                   |
 
-### Inputs (Triggered by !press)
+### Inputs (Triggered by clicking on the gate)
 
-| gate     | description                         |
-| -------- | ----------------------------------- |
-| `button` | when interacted, powers for 3 ticks |
-| `lever`  | when interacted, toggles power      |
+| gate     | description                        |
+| -------- | ---------------------------------- |
+| `button` | when interacted, powers for 1 tick |
+| `lever`  | when interacted, toggles power     |
 
 ### Outputs (Render bricks)
 

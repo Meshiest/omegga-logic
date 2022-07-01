@@ -2,6 +2,8 @@ import Simulator from '..';
 import { SpecialGate, GateMeta } from './interface';
 export default class Multiplexer extends SpecialGate {
   static getName = () => 'mux';
+  static getDescription = () => 'outputs ON when binary addressed input is ON';
+
   static validateConnectables(markers: GateMeta['connectables']) {
     const numInput = markers.input.length;
     const numOutput = markers.output.length;

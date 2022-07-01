@@ -2,6 +2,9 @@ import Simulator from '..';
 import { SpecialGate } from './interface';
 export default class SRLatch extends SpecialGate {
   static getName = () => 'sr_latch';
+  static getDescription = () =>
+    'when input is ON, turn output ON. when reset is ON, turn OFF';
+
   static getConnectables = () => ({
     input: 1,
     reset: 1,

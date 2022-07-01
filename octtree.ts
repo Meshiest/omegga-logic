@@ -3,6 +3,8 @@ const RIGHT = 1;
 const TOP = 2;
 const BACK = 4;
 
+type DistArgs = [x: number, y: number, z: number] | [p: Point];
+
 // a point in space
 export class Point {
   x: number;
@@ -51,13 +53,13 @@ export class Point {
   }
 
   // get the octant the point should be in for a node
-  getOctant(corner: Point, child: Point, depth: number) {
+  getOctant(child: Point, depth: number) {
     if (depth === 0) return 0;
 
     return (
-      ((child.x - corner.x) >> (depth - 1) > 0 ? RIGHT : 0) |
-      ((child.y - corner.y) >> (depth - 1) > 0 ? TOP : 0) |
-      ((child.z - corner.z) >> (depth - 1) > 0 ? BACK : 0)
+      ((child.x - this.x) >> (depth - 1) > 0 ? RIGHT : 0) |
+      ((child.y - this.y) >> (depth - 1) > 0 ? TOP : 0) |
+      ((child.z - this.z) >> (depth - 1) > 0 ? BACK : 0)
     );
   }
 
@@ -78,6 +80,15 @@ export class Point {
   // return a copy of this point shifted
   shifted(x: number, y: number, z: number) {
     return new Point(this.x + x, this.y + y, this.z + z);
+  }
+
+  dist(...args: DistArgs) {
+    const [x, y, z] = args.length === 3 ? args : args[0].arr();
+    return Math.hypot(this.x - x, this.y - y, this.z - z);
+  }
+
+  arr() {
+    return [this.x, this.y, this.z];
   }
 
   // stringified points are <x, y, z>
@@ -220,9 +231,7 @@ export class OctNode<T> {
   get(point: Point): T | null {
     if ('value' in this.value) return this.value.value;
     if ('nodes' in this.value)
-      return this.value.nodes[
-        this.pos.getOctant(this.pos, point, this.depth)
-      ].get(point);
+      return this.value.nodes[this.pos.getOctant(point, this.depth)].get(point);
     return null;
   }
 }

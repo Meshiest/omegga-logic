@@ -2,10 +2,12 @@ import Simulator from '..';
 import { SpecialGate, GateMeta } from './interface';
 export default class Decoder extends SpecialGate {
   static getName = () => 'dec';
+  static getDescription = () =>
+    'inputs binary number N, turns on the Nth output. will not output when disabled';
 
   static getConnectables = () => ({
     input: (n: number) => n > 0, // inputs
-    disable: (n: number) => n < 2, // disable
+    disable: (n: number) => n <= 1, // disable
     output: (n: number) => n > 0, // output
   });
 

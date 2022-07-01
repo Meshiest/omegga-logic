@@ -3,6 +3,8 @@ import { GateMeta, SpecialGate } from './interface';
 
 export default class Adder extends SpecialGate {
   static getName = () => 'adder';
+  static getDescription = () =>
+    'counts number of ON inputs. outputs binary representation';
   static getConnectables = () => ({
     input: (n: number) => n > 1,
     output: (n: number) => n > 1 && n <= 32,
@@ -31,7 +33,7 @@ export default class Adder extends SpecialGate {
 
     for (let i = 0; i < outputs.length; i++) {
       const o = outputs[i];
-      sim.setGroupPower(o, !!(sum & (1 << i)) !== o.inverted);
+      sim.setGroupPower(o, Boolean(sum & (1 << i)) !== o.inverted);
     }
   }
 }

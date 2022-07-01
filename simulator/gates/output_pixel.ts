@@ -7,6 +7,7 @@ export default class PixelOutput extends OutputGate {
   static getConnectables = () => ({
     output: 1,
   });
+  static getDescription = () => 'renders a white pixel when ON';
 
   static extendMeta(
     meta: GateMeta,
