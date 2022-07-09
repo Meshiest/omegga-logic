@@ -1,7 +1,12 @@
 import { Brick, Vector } from 'omegga';
 import Simulator from '..';
 import { Point } from '../../octtree';
-import { LogicBrick, searchBoundsSide } from '../util';
+import {
+  LogicBrick,
+  searchBoundsSide,
+  sortAlphabetical,
+  sortDistance,
+} from '../util';
 
 export type Connectable = {
   min: Point;
@@ -254,55 +259,54 @@ export class SpecialGate extends LogicGate {
     );
   }
 
-  findConnections(sim: Simulator) {
-    this.connections = {};
-    const sortAlphabetical = (a: Connectable, b: Connectable) =>
-      (a.rest ?? '').localeCompare(b.rest ?? '');
+  connectNode(sim: Simulator, connType: string) {
+    const nodes = this.meta.connectables[connType];
+    const sets = (this.connections[connType] = Array(nodes.length));
 
-    const sortDistance = (origin: Point) => (a: Connectable, b: Connectable) =>
-      a.min.dist(origin) - b.min.dist(origin);
+    const origin = nodes.find(n => n.rest === 'index');
 
-    for (const connType in this.meta.connectables) {
-      const nodes = this.meta.connectables[connType];
-      const sets = (this.connections[connType] = Array(nodes.length));
+    // sort nodes in the order based distance to "index" if present
+    // otherwise sort alphabetically based on the tag
+    nodes.sort(origin ? sortDistance(origin.min) : sortAlphabetical);
 
-      const origin = nodes.find(n => n.rest === 'index');
+    const dir = this.meta.direction;
 
-      // sort nodes in the order based distance to "index" if present
-      // otherwise sort alphabetically based on the tag
-      nodes.sort(origin ? sortDistance(origin.min) : sortAlphabetical);
+    for (let n = 0; n < nodes.length; ++n) {
+      // shifted bound down to gate level
+      const bound = {
+        min: new Point(
+          dir === 0 || dir === 1 ? this.meta.bounds.min.x : nodes[n].min.x,
+          dir === 2 || dir === 3 ? this.meta.bounds.min.y : nodes[n].min.y,
+          dir === 4 || dir === 5 ? this.meta.bounds.min.z : nodes[n].min.z
+        ),
+        max: new Point(
+          dir === 0 || dir === 1 ? this.meta.bounds.max.x : nodes[n].max.x,
+          dir === 2 || dir === 3 ? this.meta.bounds.max.y : nodes[n].max.y,
+          dir === 4 || dir === 5 ? this.meta.bounds.max.z : nodes[n].max.z
+        ),
+      };
 
-      const dir = this.meta.direction;
+      nodes[n].brick.ioType = connType;
+      nodes[n].brick.ioIndex = n;
+      nodes[n].brick.ownerGate = this.brick.gate;
 
-      for (let n = 0; n < nodes.length; ++n) {
-        // shifted bound down to gate level
-        const bound = {
-          min: new Point(
-            dir === 0 || dir === 1 ? this.meta.bounds.min.x : nodes[n].min.x,
-            dir === 2 || dir === 3 ? this.meta.bounds.min.y : nodes[n].min.y,
-            dir === 4 || dir === 5 ? this.meta.bounds.min.z : nodes[n].min.z
-          ),
-          max: new Point(
-            dir === 0 || dir === 1 ? this.meta.bounds.max.x : nodes[n].max.x,
-            dir === 2 || dir === 3 ? this.meta.bounds.max.y : nodes[n].max.y,
-            dir === 4 || dir === 5 ? this.meta.bounds.max.z : nodes[n].max.z
-          ),
-        };
+      sets[n] = new Set<number>();
+      sets[n].inverted = nodes[n].inverted;
 
-        nodes[n].brick.ioType = connType;
-        nodes[n].brick.ioIndex = n;
-        nodes[n].brick.ownerGate = this.brick.gate;
-
-        sets[n] = new Set<number>();
-        sets[n].inverted = nodes[n].inverted;
-
-        for (let i = 0; i < 4; ++i) {
-          for (const j of searchBoundsSide(sim.tree, bound, i, this.meta.up)) {
-            const group = sim.save.bricks[j].group;
-            if (group) sets[n].add(group);
-          }
+      for (let i = 0; i < 4; ++i) {
+        for (const j of searchBoundsSide(sim.tree, bound, i, this.meta.up)) {
+          const group = sim.save.bricks[j].group;
+          if (group) sets[n].add(group);
         }
       }
+    }
+  }
+
+  findConnections(sim: Simulator) {
+    this.connections = {};
+
+    for (const connType in this.meta.connectables) {
+      this.connectNode(sim, connType);
     }
   }
 }

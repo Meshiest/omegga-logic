@@ -155,3 +155,10 @@ export const searchBoundsSide = (
 // get direction index from two positions
 export const getDirection = (a: number[], b: number[]) =>
   Math.floor((Math.atan2(a[1] - b[1], a[0] - b[0]) / Math.PI) * 2 + 2);
+
+export const sortAlphabetical = (a: Connectable, b: Connectable) =>
+  (a.rest ?? '').localeCompare(b.rest ?? '');
+
+export const sortDistance =
+  (origin: Point) => (a: Connectable, b: Connectable) =>
+    a.min.dist(origin) - b.min.dist(origin);

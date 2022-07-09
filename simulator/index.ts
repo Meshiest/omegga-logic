@@ -58,6 +58,9 @@ Gate.registerGate(MemoryGate);
 import RGBOutput from './gates/output_rgb';
 Gate.registerGate(RGBOutput);
 
+import ROM from './gates/rom';
+Gate.registerGate(ROM);
+
 // logic simulator
 export default class Simulator {
   util: typeof OMEGGA_UTIL;

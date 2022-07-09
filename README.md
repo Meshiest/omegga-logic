@@ -72,6 +72,7 @@ A logic simulator for [omegga](https://github.com/brickadia-community/omegga).
 | `mux`         | `input`, `address`, `output`                                         | a multiplexer. requires #`output` to be divisible by #`input`s, `address` is the address, output is the value of the addressed `input`                                                                                                                       |
 | `decoder`     | `input`, `disable`, `output`                                         | a decoder. requires #`output` to be 2^(#`input`-1), `disable` turns off output `input`                                                                                                                                                                       |
 | `mem`         | `input`, `address`, (`write` OR `clock`), `output`, (optional `clr`) | a memory cell. stores (1<<#`address`) #`input`-bit values, `address` is the address. writes only when `write` is on or `clock` is clocked, outputs the currently addressed cell. There must be an equal number of inputs and outputs. `clr` clears all data. |
+| `rom`         | `address`, `config`, `output`, `data`                                | ROM. requires #`output` to be divisible by the data sent to config (`logic:io:config:8`, 8 being the word size. ) `address` is the address, can output multiple words in series                                                                              |
 
 ## Commands
 

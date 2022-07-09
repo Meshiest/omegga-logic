@@ -294,7 +294,15 @@ ${Object.entries(connectables)
       `${k}: ${
         typeof v === 'number'
           ? v
-          : OMEGGA_UTIL.chat.sanitize(v.toString().replace('(n)=>', ''))
+          : OMEGGA_UTIL.chat.sanitize(
+              (v => {
+                // this parses the function's code directly
+                // removes the arrow part
+                // and replaces every letter with "n"
+                const [_, letter] = v.match(/^\W*(\w)/);
+                return v.replace(/\(?\w+\)?=>/, '').replace(letter, 'n');
+              })(v.toString())
+            )
       }${
         gate?.['connections']?.[k] ? ` (${gate['connections'][k].length})` : ''
       }`
@@ -314,7 +322,9 @@ ${Object.entries(connectables)
               : match.groups.rest
               ? ` (${match.groups.rest})`
               : ''
-          }${inverted ? ' (inverted)' : ''}"`
+          }${inverted ? ' (inverted)' : ''}${
+            typeof brick?.ioIndex === 'number' ? ' #' + brick.ioIndex : ''
+          }"`
         );
       }
     });
