@@ -275,7 +275,6 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
           );
           return;
         }
-
         if (gate && gate instanceof InputGate) {
           gate.interact();
           Omegga.middlePrint(player.id, `"Interacted with ${gate.gate}"`);
@@ -362,6 +361,13 @@ ${Object.entries(connectables)
         .map(Number)
         .filter(n => !Number.isNaN(n) && n > 0)
         .map(n => `<code>${Math.floor(n)} = ${Math.floor(n).toString(2)}</>`);
+      if (messages.length === 0) return;
+      Omegga.whisper(n, ...messages);
+    });
+    Omegga.on('cmd:dec', async (n: string, ...args: string[]) => {
+      const messages = args
+        .filter(s => s.match(/^[01]+$/))
+        .map(n => `<code>${n} = ${parseInt(n, 2) + ''}</>`);
       if (messages.length === 0) return;
       Omegga.whisper(n, ...messages);
     });
@@ -508,6 +514,7 @@ ${
         'stop',
         'logicgriddebug',
         'bin',
+        'dec',
       ],
     };
   }
