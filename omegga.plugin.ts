@@ -273,6 +273,7 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
             player.id,
             `${match.groups.kind} is not a valid gate type`
           );
+          return;
         }
 
         if (gate && gate instanceof InputGate) {
