@@ -14,6 +14,8 @@ export default class Memory extends SpecialGate {
     output: (n: number) => n > 0 && n <= 64,
   });
 
+  isEntryPoint = true;
+
   outputConnectables = ['output'];
 
   data:
@@ -91,41 +93,8 @@ export default class Memory extends SpecialGate {
     return val;
   }
   evaluate(sim: Simulator) {
-    const {
-      write: [write],
-      clock: [clock],
-      clear: [clear],
-      output: outputs,
-    } = this.connections;
+    const { output: outputs } = this.connections;
     const addr = Number(this.getDecFromBin(sim, 'address'));
-
-    // clear on rising edge
-    if (this.connections.clear.length > 0) {
-      const curClear = sim.getGroupPower(clear).some(s => s) !== clear.inverted;
-      if (curClear && !this.lastClear) {
-        for (let i = 0; i < this.data.length; ++i)
-          this.data[i] = this.big ? 0n : 0;
-        this.lastClear = curClear;
-        for (const o of outputs) sim.setGroupPower(o, o.inverted);
-        return;
-      }
-      this.lastClear = curClear;
-    }
-
-    const writeOn =
-      write && sim.getGroupPower(write).some(g => g) !== write.inverted;
-    const clockOn =
-      clock && sim.getGroupPower(clock).some(g => g) !== clock.inverted;
-
-    // if write mode is on or the cell is getting clocked, update data
-    if (writeOn || (clockOn && !this.lastClock)) {
-      this.data[addr] = this.getDecFromBin(sim, 'input');
-    }
-
-    // update last clock
-    if (clock) {
-      this.lastClock = clockOn;
-    }
 
     if (!this.data[addr]) return;
 
@@ -144,6 +113,41 @@ export default class Memory extends SpecialGate {
         const o = outputs[i];
         sim.setGroupPower(o, !!(output & (1 << i)) !== o.inverted);
       }
+    }
+  }
+  settle(sim: Simulator) {
+    const {
+      write: [write],
+      clock: [clock],
+      clear: [clear],
+    } = this.connections;
+    const addr = Number(this.getDecFromBin(sim, 'address'));
+
+    // clear on rising edge
+    if (this.connections.clear.length > 0) {
+      const curClear = sim.getGroupPower(clear).some(s => s) !== clear.inverted;
+      if (curClear && !this.lastClear) {
+        for (let i = 0; i < this.data.length; ++i)
+          this.data[i] = this.big ? 0n : 0;
+        this.lastClear = curClear;
+        return;
+      }
+      this.lastClear = curClear;
+    }
+
+    const writeOn =
+      write && sim.getGroupPower(write).some(g => g) !== write.inverted;
+    const clockOn =
+      clock && sim.getGroupPower(clock).some(g => g) !== clock.inverted;
+
+    // if write mode is on or the cell is getting clocked, update data
+    if (writeOn || (clockOn && !this.lastClock)) {
+      this.data[addr] = this.getDecFromBin(sim, 'input');
+    }
+
+    // update last clock
+    if (clock) {
+      this.lastClock = clockOn;
     }
   }
 }

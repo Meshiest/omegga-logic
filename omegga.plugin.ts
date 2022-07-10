@@ -356,6 +356,15 @@ ${Object.entries(connectables)
       }
     });
 
+    Omegga.on('cmd:bin', async (n: string, ...args: string[]) => {
+      const messages = args
+        .map(Number)
+        .filter(n => !Number.isNaN(n) && n > 0)
+        .map(n => `<code>${Math.floor(n)} = ${Math.floor(n).toString(2)}</>`);
+      if (messages.length === 0) return;
+      Omegga.whisper(n, ...messages);
+    });
+
     Omegga.on('cmd:go', async (n, args = '') => {
       try {
         if (!this.isAuthorized(n)) return;
@@ -491,7 +500,14 @@ ${
     }); */
 
     return {
-      registeredCommands: ['clg', 'go', 'next', 'stop', 'logicgriddebug'],
+      registeredCommands: [
+        'clg',
+        'go',
+        'next',
+        'stop',
+        'logicgriddebug',
+        'bin',
+      ],
     };
   }
 
