@@ -36,15 +36,16 @@ export default class DFlipFlop extends SpecialGate {
     } = this.connections;
 
     if (clock) {
-      const curClock = sim.getGroupPower(clock).some(s => s) !== clock.inverted;
+      const curClock =
+        sim.getGroupPower(clock).some(s => s) !== clock?.inverted;
 
       // clock on rising edge only
       if (curClock && !this.lastClock) {
         this.state = sim.getGroupPower(input).some(s => s) !== input.inverted;
       }
       this.lastClock = curClock;
-    } else {
-      const isWrite = sim.getGroupPower(write).some(s => s) !== write.inverted;
+    } else if (write) {
+      const isWrite = sim.getGroupPower(write).some(s => s) !== write?.inverted;
       if (isWrite) {
         this.state = sim.getGroupPower(input).some(s => s) !== input.inverted;
       }
