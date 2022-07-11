@@ -24,7 +24,7 @@ export default class DFlipFlop extends SpecialGate {
 
   init() {
     this.state = false;
-    this.lastClock = this.connections.clock[0].inverted;
+    this.lastClock = this.connections.clock[0]?.inverted;
   }
 
   evaluate(sim: Simulator) {
