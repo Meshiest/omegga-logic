@@ -39,6 +39,9 @@ export default class Memory extends SpecialGate {
     return;
   }
   init() {
+    if (this.meta.connectables.write[0]?.rest === 'fast')
+      this.isEntryPoint = false;
+
     // number of addressible values in memory
     const numAddrs = 1 << this.connections.address.length;
     const DataClass = [
@@ -96,6 +99,8 @@ export default class Memory extends SpecialGate {
     const { output: outputs } = this.connections;
     const addr = Number(this.getDecFromBin(sim, 'address'));
 
+    if (!this.isEntryPoint) this.write(sim);
+
     if (!this.data[addr]) return;
 
     if (this.big) {
@@ -116,6 +121,9 @@ export default class Memory extends SpecialGate {
     }
   }
   settle(sim: Simulator) {
+    if (this.isEntryPoint) this.write(sim);
+  }
+  write(sim: Simulator) {
     const {
       write: [write],
       clock: [clock],

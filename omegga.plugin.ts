@@ -448,7 +448,8 @@ ${[
   ((index, type, gate) =>
     type &&
     `io: ${type}.${index} [${[
-      ...(this.state.gates[gate]?.['connections']?.[type][index] ?? new Set()),
+      ...(this.state.gates[gate]?.['connections']?.[type]?.[index] ??
+        new Set()),
     ].join(' ')}]`)(brick.ioIndex, brick.ioType, brick.ownerGate),
 ]
   .filter(Boolean)

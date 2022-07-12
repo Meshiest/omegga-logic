@@ -7,7 +7,6 @@ export default class BufferGate extends SimpleGate {
 
   state: boolean;
   isEntryPoint = true;
-  // isExitPoint = true;
 
   init() {
     this.state = false;

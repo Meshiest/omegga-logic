@@ -198,6 +198,7 @@ export default class Simulator {
     // gate to gate links
     for (let i = 0; i < this.gates.length; ++i) {
       const conns = { in: new Set<number>(), out: new Set<number>() };
+
       // add all output gates for input groups
       for (const inGroup of gateToGroup[i].in) {
         for (const inGate of groupToGate[inGroup - 1].in) {
@@ -234,6 +235,8 @@ export default class Simulator {
 
     // https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
     function kahnsAlgorithm(entry: number[], circuit: number[]) {
+      if (circuit.length === 1) return circuit;
+
       // set of entrypoints
       const s = [...entry];
       const added = new Set<number>();
@@ -318,7 +321,9 @@ export default class Simulator {
           this.gates[g].ignore = true;
           this.errors.push({
             position: this.gates[g].brick.position,
-            error: 'cycle detected. add a buffer',
+            error: `${this.gates[g].gate}: cycle detected. add a buffer${
+              path ? '' : '!'
+            }`,
           });
         }
         continue;
@@ -336,7 +341,7 @@ export default class Simulator {
         '} out {',
         ...[...gateToGroup[i].out],
         '} path {',
-        ...path.map(i => `${i}:${this.gates[i].constructor['getName']()}`),
+        ...path.map(i => `${i}:${this.gates[i].gate}`),
         '}'
       ); */
     }
