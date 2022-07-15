@@ -22,7 +22,7 @@
       "args": [
         {
           "name": "flags",
-          "description": "r = run, c = clipboard, w = hide wides. (default none)",
+          "description": "r = run, c = clipboard, w = hide wides, l = loose octree. (default none)",
           "required": false
         }
       ]

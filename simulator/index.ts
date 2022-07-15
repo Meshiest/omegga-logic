@@ -1,3 +1,4 @@
+import LooseChunkTree from '../looseOcttree';
 import ChunkTree from '../octtree';
 
 import { UnrealColor, Vector } from 'omegga';
@@ -68,7 +69,7 @@ export default class Simulator {
   frame: number;
   save: LogicBRS;
   colors: UnrealColor[];
-  tree: ChunkTree<number>;
+  tree: LooseChunkTree<number> | ChunkTree<number>;
   gates: LogicGate[];
   outputs: OutputGate[];
   circuits: number;
@@ -80,13 +81,15 @@ export default class Simulator {
   groups: ReturnType<typeof Wire.buildGroups>;
   errors: { position: Vector; error: string }[];
 
-  constructor(save: LogicBRS, util: typeof OMEGGA_UTIL) {
+  constructor(save: LogicBRS, util: typeof OMEGGA_UTIL, loose?: boolean) {
     this.util = util;
     this.hideWires = false;
     this.frame = 0;
     this.save = save;
     this.colors = save.colors;
-    this.tree = new ChunkTree(-1);
+    this.tree = loose
+      ? new LooseChunkTree<number>(-1, i => this.save.bricks[i].bounds)
+      : new ChunkTree<number>(-1);
     this.compile();
   }
 
@@ -109,9 +112,11 @@ export default class Simulator {
 
     benchStart('build');
 
-    benchStart('octtree');
+    const octMode =
+      (this.tree instanceof LooseChunkTree ? 'loose ' : '') + 'octtree';
+    benchStart(octMode);
     populateTreeFromSave(this.save, this.tree, this.util);
-    benchEnd('octtree');
+    benchEnd(octMode);
 
     benchStart('selection');
     // classify each brick from the save

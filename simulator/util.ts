@@ -1,3 +1,4 @@
+import LooseChunkTree from 'looseOcttree';
 import ChunkTree from 'octtree';
 import {
   Brick,
@@ -63,7 +64,7 @@ export const isBlack = ([r, g, b]: UnrealColor) => !r && !g && !b;
 // convert a save to an octtree
 export const populateTreeFromSave = (
   save: LogicBRS,
-  tree: ChunkTree<number>,
+  tree: ChunkTree<number> | LooseChunkTree<number>,
   util: typeof OMEGGA_UTIL
 ) => {
   for (let i = 0; i < save.bricks.length; i++) {
@@ -103,7 +104,7 @@ export const populateTreeFromSave = (
 
 // search a specific side of a brick
 export const searchBoundsSide = (
-  tree: ChunkTree<number>,
+  tree: LooseChunkTree<number> | ChunkTree<number>,
   bounds: { max: Point; min: Point },
   side: number,
   up: (a: Vector) => Vector

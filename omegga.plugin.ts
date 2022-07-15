@@ -183,13 +183,20 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
   }
 
   // run a sim with the provided data
-  async simWithData(data, options: { hideWires?: boolean } = {}) {
+  async simWithData(
+    data,
+    options: { hideWires?: boolean; loose?: boolean } = {}
+  ) {
     // get the state of the logic
     const start = Date.now();
-    const state = new Simulator(data, OMEGGA_UTIL);
+    const state = new Simulator(data, OMEGGA_UTIL, options.loose);
     const duration = (Date.now() - start) / 1000;
 
-    Omegga.broadcast('"<b><color=\\"aaaaff\\">Simulation Compile Stats</></>"');
+    Omegga.broadcast(
+      `"<b><color=\\"aaaaff\\">Simulation Compile Stats</></>${
+        options.loose ? ' <size=\\"12\\">(loose)</>' : ''
+      }"`
+    );
     Omegga.broadcast(
       `"<code><color=\\"ffffff\\"><size=\\"15\\">- read ${data.bricks.length} bricks</></></>"`
     );
@@ -213,9 +220,9 @@ export default class Logic implements OmeggaPlugin<Config, Storage> {
       `"<code><color=\\"ffffff\\"><size=\\"15\\">- took ${duration.toLocaleString()} seconds</></></>"`
     );
 
-    await Omegga.clearBricks(owners[0], true);
-    await Omegga.clearBricks(owners[1], true);
-    await Omegga.clearBricks(owners[2], true);
+    Omegga.clearBricks(owners[0], true);
+    Omegga.clearBricks(owners[1], true);
+    Omegga.clearBricks(owners[2], true);
 
     if (options.hideWires) state.showWires(false);
 
@@ -378,6 +385,8 @@ ${Object.entries(connectables)
         const isClipboard = args.includes('c');
         const isRunning = args.includes('r');
         const hideWires = args.includes('w');
+        const loose = args.includes('l');
+
         this.running = false;
         Omegga.broadcast(
           `"<b><color=\\"ffffaa\\">${n}</></> compiled ${
@@ -389,7 +398,8 @@ ${Object.entries(connectables)
           ? Omegga.getPlayer(n).getTemplateBoundsData()
           : Omegga.getSaveData());
         if (!data) return;
-        await this.simWithData(data, { hideWires });
+        this.state = null;
+        await this.simWithData(data, { hideWires, loose });
 
         if (isRunning) {
           Omegga.broadcast(
@@ -414,7 +424,7 @@ ${Object.entries(connectables)
     });
 
     // TODO: remove this - previews the octree
-    Omegga.on('cmd:logicgriddebug', (name: string) => {
+    /*  Omegga.on('cmd:logicgriddebug', (name: string) => {
       if (!this.isAuthorized(name)) return;
       if (!this.state) return;
       const player = Omegga.getPlayer(name);
@@ -486,7 +496,7 @@ ${
           brick_owners: [player],
           bricks,
         });
-    });
+    }); */
 
     /*     Omegga.on('cmd:removemessage', async (name: string) => {
       const player = Omegga.getPlayer(name);
@@ -513,9 +523,9 @@ ${
         'go',
         'next',
         'stop',
-        'logicgriddebug',
         'bin',
         'dec',
+        // 'logicgriddebug',
       ],
     };
   }

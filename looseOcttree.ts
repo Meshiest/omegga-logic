@@ -1,118 +1,32 @@
-export const CHUNK_DEPTH = 10;
-export const CHUNK_SIZE = 1 << CHUNK_DEPTH;
-const RIGHT = 1;
-const TOP = 2;
-const BACK = 4;
+import { Point, CHUNK_DEPTH, CHUNK_SIZE } from './octtree';
 
-type DistArgs = [x: number, y: number, z: number] | [p: Point];
+// when depth is 0, this is the same as having a normal octree
+const LOOSE_DEPTH = 1;
+const MAX_LOOSE_CHILDREN = 10;
 
-// a point in space
-export class Point {
-  x: number;
-  y: number;
-  z: number;
-
-  constructor(x: number, y: number, z: number) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-  }
-
-  static rect(
-    x: number,
-    y: number,
-    z: number,
-    w: number,
-    h: number,
-    d: number
-  ) {
-    return [
-      new Point(x - w / 2, y - h / 2, z - d / 2),
-      new Point(x + w / 2, y + h / 2, z + d / 2),
-    ];
-  }
-
-  // get a chunk from a point
-  getChunk() {
-    return new Point(
-      Math.floor(this.x / CHUNK_SIZE),
-      Math.floor(this.y / CHUNK_SIZE),
-      Math.floor(this.z / CHUNK_SIZE)
-    );
-  }
-
-  // returns true if this point is between the other two
-  in(min: Point, max: Point) {
-    return (
-      min.x <= this.x &&
-      this.x <= max.x &&
-      min.y <= this.y &&
-      this.y <= max.y &&
-      min.z <= this.z &&
-      this.z <= max.z
-    );
-  }
-
-  // get the octant the point should be in for a node
-  getOctant(child: Point, depth: number) {
-    if (depth === 0) return 0;
-
-    return (
-      ((child.x - this.x) >> (depth - 1) > 0 ? RIGHT : 0) |
-      ((child.y - this.y) >> (depth - 1) > 0 ? TOP : 0) |
-      ((child.z - this.z) >> (depth - 1) > 0 ? BACK : 0)
-    );
-  }
-
-  // get the middle of a chunk
-  getChunkMidpoint() {
-    return new Point(
-      this.x * CHUNK_SIZE,
-      this.y * CHUNK_SIZE,
-      this.z * CHUNK_SIZE
-    );
-  }
-
-  // compare points
-  eq(point: Point) {
-    return this.x == point.x && this.y == point.y && this.z == point.z;
-  }
-
-  // return a copy of this point shifted
-  shifted(x: number, y: number, z: number) {
-    return new Point(this.x + x, this.y + y, this.z + z);
-  }
-
-  dist(...args: DistArgs) {
-    const [x, y, z] = args.length === 3 ? args : args[0].arr();
-    return Math.hypot(this.x - x, this.y - y, this.z - z);
-  }
-
-  arr() {
-    return [this.x, this.y, this.z];
-  }
-
-  // stringified points are <x, y, z>
-  toString() {
-    return `<${this.x}, ${this.y}, ${this.z}>`;
-  }
-}
-
-type OctNodeValue<T> =
+type LooseOctNodeValue<T> =
   // | { unchanged: true } // unused, for diffing
-  { value: T | null } | { nodes: OctNode<T>[] };
+  { children: Set<T> | null } | { nodes: LooseOctNode<T>[] };
+
+type LookupFn<T> = (i: T) => { min: Point; max: Point };
 
 // a node in the tree
-export class OctNode<T> {
+export class LooseOctNode<T> {
   pos: Point;
   depth: number;
-  value: OctNodeValue<T>;
+  value: LooseOctNodeValue<T>;
   chunk?: Point;
+  lookup: LookupFn<T>;
 
-  constructor(pos: Point, depth: number, value: T | null) {
+  constructor(pos: Point, depth: number, value: T | null, lookup: LookupFn<T>) {
     this.pos = pos;
     this.depth = depth;
-    this.value = { value };
+    this.lookup = lookup;
+
+    const children = new Set<T>();
+    if (value !== null) children.add(value);
+
+    this.value = { children };
   }
 
   // true if this node is contained by the bounds
@@ -142,20 +56,21 @@ export class OctNode<T> {
   }
 
   // if every child node has the same value, delete them
-  reduce() {
+  __reduce() {
     if (!('nodes' in this.value)) return;
 
     // reduce all the nodes to values
     // check if the other 7 nodes have the same value as the first one
     for (let i = 0; i < 8; i++) {
       // attempt to reduce this node
-      this.value.nodes[i].reduce();
+      this.value.nodes[i].__reduce();
 
-      if (
-        !('value' in this.value.nodes[i].value) ||
-        this.value.nodes[0].value['value'] !==
-          this.value.nodes[i].value['value']
-      ) {
+      if (!('value' in this.value.nodes[i].value)) {
+        return;
+      }
+
+      // TODO: reimplement
+      if (this.value.nodes[0].value !== this.value.nodes[i].value) {
         return;
       }
     }
@@ -166,36 +81,62 @@ export class OctNode<T> {
 
   // insert an area into the tree
   insert(value: T, minBound: Point, maxBound: Point) {
-    if (this.isInside(minBound, maxBound)) {
-      this.value = { value };
+    // add it to this node's children if
+    if (
+      // sufficiently deep
+      this.depth <= LOOSE_DEPTH ||
+      // or inside this node AND there a fewer than 4 children
+      ('children' in this.value &&
+        this.value.children.size < MAX_LOOSE_CHILDREN &&
+        this.isInside(minBound, maxBound))
+    ) {
+      if (!('children' in this.value)) this.value = { children: new Set<T>() };
+      this.value.children.add(value);
       return;
     }
 
-    if (this.depth === 0) return;
-
     // populate nodes if it's empty
-    if ('value' in this.value) {
+    if ('children' in this.value) {
       // decrease depth
-      const depth = this.depth - 1;
+      const d = this.depth - 1;
       // the shift is half of the child's size
-      const shift = 1 << depth;
-      // create new nodes in each 8 child octants of this node
-      const { value } = this.value;
+      const shift = 1 << d;
 
+      // create new nodes in each 8 child octants of this node
+      const lookup = this.lookup;
+
+      const { children } = this.value;
+
+      // create new descendant nodes
       this.value = {
         nodes: [
-          new OctNode(this.pos.shifted(0, 0, 0), depth, value),
-          new OctNode(this.pos.shifted(shift, 0, 0), depth, value),
-          new OctNode(this.pos.shifted(0, shift, 0), depth, value),
-          new OctNode(this.pos.shifted(shift, shift, 0), depth, value),
-          new OctNode(this.pos.shifted(0, 0, shift), depth, value),
-          new OctNode(this.pos.shifted(shift, 0, shift), depth, value),
-          new OctNode(this.pos.shifted(0, shift, shift), depth, value),
-          new OctNode(this.pos.shifted(shift, shift, shift), depth, value),
+          new LooseOctNode(this.pos.shifted(0, 0, 0), d, null, lookup),
+          new LooseOctNode(this.pos.shifted(shift, 0, 0), d, null, lookup),
+          new LooseOctNode(this.pos.shifted(0, shift, 0), d, null, lookup),
+          new LooseOctNode(this.pos.shifted(shift, shift, 0), d, null, lookup),
+          new LooseOctNode(this.pos.shifted(0, 0, shift), d, null, lookup),
+          new LooseOctNode(this.pos.shifted(shift, 0, shift), d, null, lookup),
+          new LooseOctNode(this.pos.shifted(0, shift, shift), d, null, lookup),
+          new LooseOctNode(
+            this.pos.shifted(shift, shift, shift),
+            d,
+            null,
+            lookup
+          ),
         ],
       };
+
+      // re-add the children to the nodes only if they're not fully outside
+      for (const i of children) {
+        const { min, max } = this.lookup(i);
+
+        for (const n of this.value.nodes) {
+          if (!n.isOutside(min, max)) n.insert(value, min, max);
+        }
+      }
     }
 
+    // add the value to the descendant nodes
     if ('nodes' in this.value) {
       for (const n of this.value.nodes) {
         if (!n.isOutside(minBound, maxBound))
@@ -208,9 +149,24 @@ export class OctNode<T> {
   search(minBound: Point, maxBound: Point, set: Set<T>) {
     set ??= new Set();
     // if there's no nodes...
-    if ('value' in this.value) {
+    if ('children' in this.value) {
       // add this value, this node would only have come up if it was within bounds
-      set.add(this.value.value);
+      for (const i of this.value.children) {
+        const { min, max } = this.lookup(i);
+
+        // this volume is not outside the given range
+        if (
+          !(
+            max.x <= minBound.x ||
+            min.x >= maxBound.x ||
+            max.y <= minBound.y ||
+            min.y >= maxBound.y ||
+            max.z <= minBound.z ||
+            min.z >= maxBound.z
+          )
+        )
+          set.add(i);
+      }
       return;
     }
 
@@ -227,27 +183,35 @@ export class OctNode<T> {
 
   // get the value at this point
   get(point: Point): T | null {
-    if ('value' in this.value) return this.value.value;
+    if ('children' in this.value) {
+      for (const i of this.value.children) {
+        const { min, max } = this.lookup(i);
+        if (point.in(min, max)) return i;
+      }
+    }
     if ('nodes' in this.value)
       return this.value.nodes[this.pos.getOctant(point, this.depth)].get(point);
     return null;
   }
 }
 
-export default class ChunkTree<T> {
-  chunks: OctNode<T>[];
+export default class LooseChunkTree<T> {
+  chunks: LooseOctNode<T>[];
   fill: T;
+  lookup: LookupFn<T>;
 
-  constructor(fill = null) {
+  constructor(fill = null, lookup: LookupFn<T>) {
+    this.lookup = lookup;
+
     this.chunks = [];
     // empty nodes have this value
     this.fill = fill;
   }
 
   // reduce all chunks
-  reduce() {
+  __reduce() {
     for (const chunk of this.chunks) {
-      chunk.reduce();
+      chunk.__reduce();
     }
   }
 
@@ -321,7 +285,12 @@ export default class ChunkTree<T> {
     let chunk = this.chunks.find(c => c.chunk.eq(chunkPos));
     if (!chunk && create) {
       // create a new chunk because one does not exist
-      chunk = new OctNode(chunkPos.getChunkMidpoint(), CHUNK_DEPTH, this.fill);
+      chunk = new LooseOctNode(
+        chunkPos.getChunkMidpoint(),
+        CHUNK_DEPTH,
+        null,
+        this.lookup
+      );
       chunk.chunk = chunkPos;
       this.chunks.push(chunk);
     }
@@ -342,9 +311,6 @@ export default class ChunkTree<T> {
         chunk.search(min, max, results);
       }
     });
-
-    // remove the empty item1
-    results.delete(this.fill);
 
     return results;
   }
